@@ -1,0 +1,3577 @@
+diff -Naur ./cppcheck-1.72/cppcheck.sln ./cppcheck-1.72_org/cppcheck.sln
+--- ./cppcheck-1.72/cppcheck.sln	2016-03-09 15:20:46.075820600 +0900
++++ ./cppcheck-1.72_org/cppcheck.sln	2016-01-09 22:50:01.000000000 +0900
+@@ -1,8 +1,11 @@
+ ﻿
+-Microsoft Visual Studio Solution File, Format Version 12.00
+-# Visual Studio Express 14 for Windows Desktop
+-VisualStudioVersion = 14.0.23107.0
+-MinimumVisualStudioVersion = 10.0.40219.1
++Microsoft Visual Studio Solution File, Format Version 11.00
++# Visual Studio Express 2013 for Windows Desktop
++Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "cli", "cli\cli.vcxproj", "{35CBDF51-2456-3EC3-99ED-113C30858883}"
++	ProjectSection(ProjectDependencies) = postProject
++		{C183DB5B-AD6C-423D-80CA-1F9549555A1A} = {C183DB5B-AD6C-423D-80CA-1F9549555A1A}
++	EndProjectSection
++EndProject
+ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "testrunner", "test\testrunner.vcxproj", "{4F7DCE5E-6CDE-38C4-9EA7-27AF3B25CEB4}"
+ 	ProjectSection(ProjectDependencies) = postProject
+ 		{C183DB5B-AD6C-423D-80CA-1F9549555A1A} = {C183DB5B-AD6C-423D-80CA-1F9549555A1A}
+@@ -22,6 +25,22 @@
+ 		Release-PCRE|x64 = Release-PCRE|x64
+ 	EndGlobalSection
+ 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
++		{35CBDF51-2456-3EC3-99ED-113C30858883}.Debug|Win32.ActiveCfg = Debug|Win32
++		{35CBDF51-2456-3EC3-99ED-113C30858883}.Debug|Win32.Build.0 = Debug|Win32
++		{35CBDF51-2456-3EC3-99ED-113C30858883}.Debug|x64.ActiveCfg = Debug|x64
++		{35CBDF51-2456-3EC3-99ED-113C30858883}.Debug|x64.Build.0 = Debug|x64
++		{35CBDF51-2456-3EC3-99ED-113C30858883}.Debug-PCRE|Win32.ActiveCfg = Debug-PCRE|Win32
++		{35CBDF51-2456-3EC3-99ED-113C30858883}.Debug-PCRE|Win32.Build.0 = Debug-PCRE|Win32
++		{35CBDF51-2456-3EC3-99ED-113C30858883}.Debug-PCRE|x64.ActiveCfg = Debug-PCRE|x64
++		{35CBDF51-2456-3EC3-99ED-113C30858883}.Debug-PCRE|x64.Build.0 = Debug-PCRE|x64
++		{35CBDF51-2456-3EC3-99ED-113C30858883}.Release|Win32.ActiveCfg = Release|Win32
++		{35CBDF51-2456-3EC3-99ED-113C30858883}.Release|Win32.Build.0 = Release|Win32
++		{35CBDF51-2456-3EC3-99ED-113C30858883}.Release|x64.ActiveCfg = Release|x64
++		{35CBDF51-2456-3EC3-99ED-113C30858883}.Release|x64.Build.0 = Release|x64
++		{35CBDF51-2456-3EC3-99ED-113C30858883}.Release-PCRE|Win32.ActiveCfg = Release-PCRE|Win32
++		{35CBDF51-2456-3EC3-99ED-113C30858883}.Release-PCRE|Win32.Build.0 = Release-PCRE|Win32
++		{35CBDF51-2456-3EC3-99ED-113C30858883}.Release-PCRE|x64.ActiveCfg = Release-PCRE|x64
++		{35CBDF51-2456-3EC3-99ED-113C30858883}.Release-PCRE|x64.Build.0 = Release-PCRE|x64
+ 		{4F7DCE5E-6CDE-38C4-9EA7-27AF3B25CEB4}.Debug|Win32.ActiveCfg = Debug|Win32
+ 		{4F7DCE5E-6CDE-38C4-9EA7-27AF3B25CEB4}.Debug|Win32.Build.0 = Debug|Win32
+ 		{4F7DCE5E-6CDE-38C4-9EA7-27AF3B25CEB4}.Debug|x64.ActiveCfg = Debug|x64
+diff -Naur ./cppcheck-1.72/lib/checkbufferoverrun.cpp ./cppcheck-1.72_org/lib/checkbufferoverrun.cpp
+--- ./cppcheck-1.72/lib/checkbufferoverrun.cpp	2016-03-16 09:28:04.022913741 +0900
++++ ./cppcheck-1.72_org/lib/checkbufferoverrun.cpp	2016-01-09 22:50:01.000000000 +0900
+@@ -1065,770 +1065,6 @@
+ // Checking local variables in a scope
+ //---------------------------------------------------------------------------
+ 
+-#if ENABLE_SECURITY_CHECKER
+-#include <iostream>
+-
+-MathLib::biguint CheckBufferOverrun::getMaxFormatspecifierLen(const Token* tok, const std::list<const Token*> &parameters)
+-{
+-	const std::string &input_string = tok->str();
+-    bool percentCharFound = false;
+-    std::size_t input_string_size = 1;
+-    bool handleNextParameter = false;
+-    std::string digits_string;
+-    bool i_d_x_f_found = false;
+-    std::list<const Token*>::const_iterator paramIter = parameters.begin();
+-    std::size_t parameterLength = 0;
+-    for (std::string::size_type i = 0; i < input_string.length(); ++i) {
+-        if (input_string[i] == '\\') {
+-            if (i < input_string.length() - 1 && input_string[i + 1] == '0')
+-                break;
+-
+-            ++input_string_size;
+-            ++i;
+-            continue;
+-        }
+-
+-        if (percentCharFound) {
+-            switch (input_string[i]) {
+-            case 'f':
+-            case 'x':
+-            case 'X':
+-            case 'i':
+-                i_d_x_f_found = true;
+-                handleNextParameter = true;
+-                break;
+-            case 'c':
+-            case 'e':
+-            case 'E':
+-            case 'g':
+-            case 'o':
+-            case 'u':
+-            case 'p':
+-            	handleNextParameter = true;
+-        	    break;
+-            case 'n':
+-            	reportError(tok, Severity::error, "securitycheck", "%n is denied in format specifier.");
+-                handleNextParameter = true;
+-                break;
+-            case 'd':
+-                i_d_x_f_found = true;
+-                if (paramIter != parameters.end() && *paramIter && (*paramIter)->tokType() != Token::eString)
+-                    parameterLength = (*paramIter)->str().length();
+-
+-                handleNextParameter = true;
+-                break;
+-            case 's':
+-                if (paramIter != parameters.end() && *paramIter && (*paramIter)->tokType() == Token::eString)
+-                    parameterLength = Token::getStrLength(*paramIter);
+-
+-                handleNextParameter = true;
+-                break;
+-            }
+-        }
+-
+-        if (input_string[i] == '%')
+-            percentCharFound = !percentCharFound;
+-        else if (percentCharFound) {
+-            digits_string.append(1, input_string[i]);
+-        }
+-
+-        if (!percentCharFound)
+-            input_string_size++;
+-
+-        if (handleNextParameter) {
+-            unsigned int tempDigits = static_cast<unsigned int>(std::abs(std::atoi(digits_string.c_str())));
+-            if (i_d_x_f_found)
+-                tempDigits = std::max(static_cast<unsigned int>(tempDigits), 1U);
+-
+-            if (digits_string.find('.') != std::string::npos) {
+-                const std::string endStr = digits_string.substr(digits_string.find('.') + 1);
+-                const unsigned int maxLen = std::max(static_cast<unsigned int>(std::abs(std::atoi(endStr.c_str()))), 1U);
+-
+-                if (input_string[i] == 's') {
+-                    // For strings, the length after the dot "%.2s" will limit
+-                    // the length of the string.
+-                    if (parameterLength > maxLen)
+-                        parameterLength = maxLen;
+-                } else {
+-                    // For integers, the length after the dot "%.2d" can
+-                    // increase required length
+-                    if (tempDigits < maxLen)
+-                        tempDigits = maxLen;
+-                }
+-            }
+-
+-            if (tempDigits < parameterLength)
+-                input_string_size += parameterLength;
+-            else
+-                input_string_size += tempDigits;
+-
+-            parameterLength = 0;
+-            digits_string = "";
+-            i_d_x_f_found = false;
+-            percentCharFound = false;
+-            handleNextParameter = false;
+-            if (paramIter != parameters.end())
+-                ++paramIter;
+-        }
+-    }
+-
+-    return input_string_size;
+-}
+-
+-bool hasSuspiciousVarName(const std::string & varName)
+-{
+-	//*key* except pub, *id*, *ip*, *serial*, *sn*, *duid*, *card*, *pass*
+-	if(varName.find("key") != std::string::npos && varName.find("pub") == std::string::npos)
+-		return true;
+-	if(varName.find("id") != std::string::npos)
+-		return true;
+-	if(varName.find("ip") != std::string::npos)
+-		return true;
+-	if(varName.find("serial") != std::string::npos)
+-		return true;
+-	if(varName.find("sn") != std::string::npos)
+-		return true;
+-	if(varName.find("duid") != std::string::npos)
+-		return true;
+-	if(varName.find("card") != std::string::npos)
+-		return true;
+-	if(varName.find("pass") != std::string::npos)
+-		return true;
+-
+-	return false;
+-}
+-
+-static const Token* getInjectedTokenRelatedToToken(const Token* p_param)
+-{
+-	std::list<ValueFlow::Value>::const_iterator it;
+-	for (it = p_param->values.begin(); it != p_param->values.end(); ++it) {
+-		//std::cout << "inspect value...\n";
+-		if (it->inSecureInputValue)
+-		{
+-			return it->tokvalue;
+-		}
+-	}
+-	return NULL;
+-}
+-
+-static bool doesGivenTokenStrHasAbsPath(const Token* p_param)
+-{
+-	if(p_param && p_param->str().length() > 2 && p_param->str().substr(0, 2) != "\"/") // check if it starts with "/   AKA ABS PATH
+-		return true;
+-	else
+-		return false;
+-}
+-
+-MathLib::bigint CheckBufferOverrun::getVarSize(const Variable *var)
+-{
+-	MathLib::bigint arraySize = -1;
+-	if(var->isArray())
+-	{
+-		const ArrayInfo arrayInfo(var, _tokenizer, &_settings->library, var->declarationId());
+-		arraySize = arrayInfo.element_size();
+-		for (std::size_t i = 0; i < arrayInfo.num().size(); ++i)
+-			arraySize *= arrayInfo.num(i);
+-
+-		//	std::cout << "arraySize = " << arraySize << "\n";
+-	}
+-	else if(var->isPointer())
+-	{
+-		// parse malloc size
+-		const Token* tokDecVal = var->declEndToken()->tokAt(3);
+-		//std::cout << "DEC = " +  tokDecVal->str() + "\n";
+-		if(Token::Match(tokDecVal, "malloc ( %num% )"))
+-			arraySize = MathLib::toLongNumber(tokDecVal->tokAt(2)->str());
+-		//std::cout << "malloc size = " << arraySize << "\n";
+-	}
+-	return arraySize;
+-}
+-
+-MathLib::bigint CheckBufferOverrun::getNumFromStrlenSizeof(const Token* tok)
+-{
+-	MathLib::bigint actualNum = -1;
+-	if (Token::Match(tok, "strlen|sizeof ("))
+-	{
+-		//std::cout << "Meet " + tok->str() + " param = " + tok->tokAt(2)->str() + "\n";
+-		Token *tok_param = const_cast<Token*>(tok->tokAt(2));
+-		if (tok_param)
+-		{
+-			// get tok_str from literal val
+-			if(tok_param->tokType() == Token::eString)
+-			{
+-				actualNum = tok_param->str().length();
+-			}
+-			// get tok_str from variable's declaration
+-			else if(tok_param->tokType() == Token::eVariable)
+-			{
+-				const Variable *var = tok_param->variable();
+-				if (var)
+-				{
+-					if(var->isArray() && var->declEndToken() && var->declEndToken()->next()) // Array has no value. you need to look declare
+-					{
+-						//std::cout << "Array PARAM DETECTED\n";
+-						const Token* val = var->declEndToken()->next();
+-						//std::cout << "VAL = " + val->str() + "\n";
+-						actualNum = val->str().length();
+-					}
+-					else if(var->isPointer())
+-					{
+-						//std::cout << "Pointer PARAM DETECTED\n";
+-						//val->printValueFlow(false, std::cout);
+-						//const Token* tokDecVal = var->declEndToken()->tokAt(3);
+-						//std::cout << "DEC = " +  tokDecVal->str() + "\n";
+-						if(tok_param->getValueTokenMaxStrLength())
+-						{
+-							//std::cout << "VAL = " + tok_param->getValueTokenMaxStrLength()->str() + "\n";
+-							actualNum = tok_param->getValueTokenMaxStrLength()->str().length();
+-						}
+-
+-					}
+-				}
+-			}
+-		}
+-
+-		actualNum -= 2; // delete ""
+-		if(tok->str() == "sizeof" && actualNum > 0)
+-			actualNum ++; // add null space
+-	}
+-
+-	//std::cout << "before return actualNum with " << actualNum << "\n";
+-	return actualNum;
+-}
+-
+-void CheckBufferOverrun::checkInsecureInputValueInjection()
+-{
+-    for (const Token *tok = _tokenizer->tokens(); tok; tok = tok->next())
+-	{
+-    	if (Token::Match(tok, "exec|execl|execlp|execle|execv|execvp|execvpe|execshell|system|popen|aul_launch_app|sqlite3_exec (")) {
+-        	const Token* p_param = tok->tokAt(2);
+-
+-        	if(tok->str() == "sqlite3_exec") // sqlite3_exec ( db, sqlstatement
+-        		p_param = p_param->nextArgument();
+-
+-        	//std::cout << tok->str() << " detected and it's param's itype =" << p_param->tokType() << "\n";
+-        	if(p_param)
+-        	{
+-				if(p_param->isLiteral()) // exec ("sh -alh");
+-				{
+-					//std::cout << "LITERAL PARAM DETECTED\n";
+-					if(doesGivenTokenStrHasAbsPath(p_param))
+-						reportError(tok, Severity::error, "securitycheck", "non abs command injection" + p_param->str() );
+-				}
+-				else if(p_param->variable())
+-				{
+-					//std::cout << "VAR DETECTED\n";
+-					const Variable *var = p_param->variable();
+-
+-					// char command[256] = "sh -alh";
+-					//                   ^ n
+-					// exec(command);
+-					if(var->isArray()) // Array has no value. you need to look declare
+-					{
+-						//std::cout << "Array PARAM DETECTED\n";
+-						//const Token* val = var->declEndToken()->next();
+-						//std::cout << "VAL = " + val->str() + "\n";
+-
+-						const Token* injectedToken = getInjectedTokenRelatedToToken(p_param);
+-						if(injectedToken)
+-						{
+-							reportError(tok, Severity::error, "securitycheck",
+-							"Insecure input value injected from " + injectedToken->str() + _tokenizer->list.fileLine(injectedToken) + " to " + p_param->str()// + _tokenizer->list.fileLine(tok)
+-							);
+-						}
+-						else
+-						{
+-							if(var->declEndToken())
+-							{
+-								const Token* valToken = var->declEndToken()->next();
+-								if(doesGivenTokenStrHasAbsPath(valToken))
+-									reportError(tok, Severity::error, "securitycheck", "non abs command injection" + valToken->str() );
+-							}
+-						}
+-					}
+-
+-					// char *command = "sh -alh";
+-					// char *command; command = "sh -alh";
+-					//              ^ 1       2 3
+-					// exec(command);
+-					else if(var->isPointer())
+-					{
+-						//std::cout << "Pointer PARAM DETECTED\n";
+-						//val->printValueFlow(false, std::cout);
+-						//const Token* tokDecVal = var->declEndToken()->tokAt(3);
+-						//std::cout << "DEC = " +  tokDecVal->str() + "\n";
+-						//if(p_param->getValueTokenMaxStrLength())
+-							//std::cout << "VAL = " + p_param->getValueTokenMaxStrLength()->str() + "\n";
+-
+-						const Token* injectedToken = getInjectedTokenRelatedToToken(p_param);
+-						if(injectedToken)
+-						{
+-							reportError(tok, Severity::error, "securitycheck",
+-							"Insecure input value injected from " + injectedToken->str() + _tokenizer->list.fileLine(injectedToken) + " to " + p_param->str()// + _tokenizer->list.fileLine(tok)
+-							);
+-						}
+-						else
+-						{
+-							const Token* valToken = p_param->getValueTokenMaxStrLength();
+-							if(doesGivenTokenStrHasAbsPath(valToken))
+-								reportError(tok, Severity::error, "securitycheck", "non abs command injection" + valToken->str() );
+-						}
+-					}
+-				}
+-				else
+-				{
+-					// TODO : std::cout << "PLANK PLANK : VAR IS NOT A LITERAL or ARRARY or PTR" << __FILE__ << __LINE__ << "\n";
+-					;
+-				}
+-        	}
+-            //reportError(tok, Severity::error, "securitycheck", "possible command injection or backdoor via exec.");
+-        }
+-        // curl related options
+-        // in the case of : there is no curl.h
+-        else if (Token::Match(tok, "curl_easy_setopt ( %name% , %name% , %num% )"))
+-        {
+-        	long long inParam = (MathLib::toLongNumber(tok->strAt(6)));
+-			if(tok->strAt(4) == "CURLOPT_SSL_VERIFYPEER" && inParam != 1L)
+-			{
+-				reportError(tok, Severity::error, "securitycheck", "CURLOPT_SSL_VERIFYPEER is disabled.");
+-			}
+-			else if(tok->strAt(4) == "CURLOPT_SSL_VERIFYHOST" && inParam != 2L)
+-			{
+-				reportError(tok, Severity::error, "securitycheck", "CURLOPT_SSL_VERIFYHOST is disabled.");
+-			}
+-			else if(tok->strAt(4) == "CURLOPT_POST" && inParam != 1L)
+-			{
+-				reportError(tok, Severity::error, "securitycheck", "CURLOPT_POST is disabled.");
+-			}
+-		}
+-		else if (Token::Match(tok, "curl_easy_setopt ( %name% , CURLOPT_SSLVERSION , CURL_SSLVERSION_SSLv2|CURL_SSLVERSION_SSLv3 )"))
+-		{
+-				reportError(tok, Severity::error, "securitycheck", "CURL_SSLVERSION_SSLv2,3 is not permitted.");
+-		}
+-		else if (Token::Match(tok, "chmod ( %any% , %name%|%num% )"))
+-		{
+-			if(MathLib::isInt(tok->strAt(4))) // in case of octal number example : 0777
+-			{
+-#define HEX__(n) 0x##n##LU
+-#define B8__(x) ((x&0x0000000FLU)?1:0) +((x&0x000000F0LU)?2:0) +((x&0x00000F00LU)?4:0) +((x&0x0000F000LU)?8:0) \
+-+((x&0x000F0000LU)?16:0) +((x&0x00F00000LU)?32:0) +((x&0x0F000000LU)?64:0) +((x&0xF0000000LU)?128:0)
+-#define B8(d) ((unsigned char)B8__(HEX__(d)))
+-#define B16(dmsb,dlsb) (((unsigned short)B8(dmsb)<<8) + B8(dlsb))
+-			                                   //  r wxrwxrwx
+-				unsigned long violation_mask = B16(0,11111111); // set 0 mask
+-				long long inParam = MathLib::toLongNumber(tok->strAt(4));
+-				unsigned long castedInParam = (unsigned long) inParam;
+-				if(castedInParam & violation_mask)
+-				{
+-					reportError(tok, Severity::error, "securitycheck", "chmod : you requested too much permission.");
+-				}
+-			}
+-			else
+-			{
+-				if(tok->strAt(4) != "S_IRUSR") // in case of MACRO
+-					reportError(tok, Severity::error, "securitycheck", "chmod : you requested too much permission.");
+-			}
+-		}
+-		else if (Token::Match(tok, "chown ( %any% , %any% , %any% )"))
+-		{
+-			if(MathLib::isInt(tok->strAt(4)))
+-			{
+-				if(MathLib::toLongNumber(tok->strAt(4)) == 0)
+-					reportError(tok, Severity::error, "securitycheck", "chown : you requested too much permission.");
+-			}
+-			else if(MathLib::isInt(tok->strAt(6)))
+-			{
+-				if(MathLib::toLongNumber(tok->strAt(6)) == 0)
+-					reportError(tok, Severity::error, "securitycheck", "chown : you requested too much permission.");
+-			}
+-		}
+-		else if (Token::Match(tok, "seteuid|setegid ( %any% )"))
+-		{
+-			reportError(tok, Severity::error, "securitycheck", tok->str() + " : you should not call.");
+-		}
+-		else if (Token::Match(tok, "chroot|sethostid ( %any% )"))
+-		{
+-			reportError(tok, Severity::error, "securitycheck", tok->str() + " : you should not call.");
+-		}
+-		else if (Token::Match(tok, "fopen ( %any% , %any% )"))
+-		{
+-			if(tok->strAt(4).find('w') != std::string::npos)
+-			{
+-				int search_tok_limit = 30;
+-				bool found_target = false;
+-				for(const Token *back_tok = tok; back_tok && search_tok_limit > 0 ; back_tok = back_tok->previous())
+-				{
+-					if(Token::Match(back_tok, "realpath ("))
+-					{
+-						found_target = true;
+-						break;
+-					}
+-					search_tok_limit--;
+-				}
+-				if(!found_target)
+-				{
+-					reportError(tok, Severity::error, "securitycheck", "fopen : you should check symbolic link using realpath.");
+-				}
+-			}
+-		}
+-		else if (Token::Match(tok, "rand ( "))
+-		{
+-			int search_tok_limit = 50;
+-			bool found_target = false;
+-			for(const Token *back_tok = tok; back_tok && search_tok_limit > 0 ; back_tok = back_tok->previous())
+-			{
+-				//std::cout << "[bt : " << back_tok->str() << "]\n";
+-				if(Token::Match(back_tok, "srand ("))
+-				{
+-					found_target = true;
+-					break;
+-				}
+-				search_tok_limit--;
+-			}
+-			if(!found_target)
+-			{
+-				reportError(tok, Severity::error, "securitycheck", "rand : you should call srand before.");
+-			}
+-		}
+-		else if(Token::Match(tok, "SHA224_Init|SHA1_Init|MD5_Init ("))
+-		{
+-			reportError(tok, Severity::error, "securitycheck", tok->str() + " : you should use more strong hash function.");
+-		}
+-		else if(Token::Match(tok, "AES_set_encrypt_key ( %any% , %any%"))
+-		{
+-			int lowest_aes_strength = 256;
+-			int input_value = 0;
+-			const Token* p_param = tok->tokAt(4);
+-			if(p_param->variable() && p_param->variable()->isIntegralType())
+-			{
+-					if(p_param->getValueGE(0,_settings))
+-					{
+-						input_value = (int)p_param->getValueGE(0,_settings)->varvalue;
+-						//std::cout << "input from var = " << lowest_aes_strength << "\n";
+-					}
+-			}
+-			else if(MathLib::isInt(p_param->str()))
+-			{
+-				input_value = (int)MathLib::toLongNumber(p_param->str());
+-			}
+-
+-			if(input_value < lowest_aes_strength)
+-				reportError(tok, Severity::error, "securitycheck", tok->str() + " : you should use more long encryption key.");
+-		}
+-		else if (Token::Match(tok, "AES_ecb_encrypt ( "))
+-		{
+-			reportError(tok, Severity::error, "securitycheck", tok->str() + " : you should use more strong encryption.");
+-
+-		}
+-		else if (Token::Match(tok, "fwrite ( %var%"))
+-		{
+-			const Token* p_param = tok->tokAt(2);
+-			if(hasSuspiciousVarName(p_param->str()) && p_param->str().find("enc") == std::string::npos)
+-			{
+-				reportError(tok, Severity::error, "securitycheck", tok->str() + " : you should not save important value without encrypt it.");
+-			}
+-		}
+-		else if (Token::Match(tok, "send ( %any% , %var%"))
+-		{
+-			const Token* p_param = tok->tokAt(4);
+-			if(hasSuspiciousVarName(p_param->str()) && p_param->str().find("enc") == std::string::npos)
+-			{
+-				reportError(tok, Severity::error, "securitycheck", tok->str() + " : you should not save important value without encrypt it.");
+-			}
+-		}
+-		else if (Token::Match(tok, "getenv ( %any% )"))
+-		{
+-
+-			reportError(tok, Severity::error, "securitycheck", tok->str() + " : env value can be hooked by a hacker.");
+-		}
+-		else if (Token::Match(tok, "return %var%"))
+-		{
+-			const Scope * scope = tok->scope();
+-			// check if this function is a member function and if it is public
+-			if (scope && scope->functionOf && scope->functionOf->isClassOrStruct()
+-				&& scope->function && scope->function->access == Public)
+-			{
+-				// check it return private arrary
+-				const Token* p_param = tok->tokAt(1);
+-				const Variable *var = p_param->variable();
+-				if( var && var->isArray() && var->isPrivate() )
+-				{
+-					reportError(tok, Severity::error, "securitycheck", tok->str() + " : (broken capsulation) you should not return private array member.");
+-				}
+-			}
+-		}
+-		else if (Token::Match(tok, "[;{}] %var% = atoi ( %any% ) ;"))
+-		{
+-			// search if the assigned varid is de-refed in next 50 tokens.
+-
+-			const Variable *var = tok->tokAt(1)->variable();
+-			if(var)
+-			{
+-				int search_tok_limit = 50;
+-				bool found_target = false;
+-				for(const Token *next_tok = tok->tokAt(8) ; next_tok && search_tok_limit > 0 ; next_tok = next_tok->next())
+-				{
+-					if(Token::Match(next_tok, "%var% [ %varid%", var->declarationId())
+-					|| Token::Match(next_tok, "* ( %var% + %varid%", var->declarationId()))
+-					{
+-						found_target = true;
+-						break;
+-					}
+-					search_tok_limit--;
+-				}
+-				if(found_target)
+-				{
+-					reportError(tok, Severity::error, "securitycheck", "you should not use atoied value directly to ptr operation. you need to check it's range and validity");
+-				}
+-			}
+-		}
+-		else if( Token::Match(tok, "sprintf|strcpy|strcat|gets ( %any%") )
+-		{
+-			reportError(tok, Severity::error, "securitycheck", tok->str() + " : you should not call denied function");
+-		}
+-		else if( Token::Match(tok, "snprintf ( %var% , %any% , %any% , ") || Token::Match(tok, "PCString :: Print ( %var% , %any% , %any% , "))
+-		{
+-			const Token* braceStartTok = NULL;
+-			if(tok->str() == "snprintf")
+-				braceStartTok = tok->tokAt(1);
+-			else if(tok->str() == "PCString")
+-				braceStartTok = tok->tokAt(3);
+-
+-			const Token* destBuffTok = braceStartTok->tokAt(1);
+-			const Token* destBuffSizeTok = braceStartTok->tokAt(3);
+-			const Token* formatSpecifierTok = braceStartTok->tokAt(5);
+-
+-			// 1. check if the format specifier is a var
+-			if(formatSpecifierTok->variable())
+-			{
+-				reportError(tok, Severity::error, "securitycheck", tok->str() + " : you should use constant string for format specifier or not, it can be injected");
+-			}
+-			else
+-			{
+-				// calculate dest buffer size
+-				const Variable *destBufVar = destBuffTok->variable();
+-				if(destBufVar)
+-				{
+-					MathLib::bigint destBufSize = getVarSize(destBufVar);
+-					if(destBufSize == -1)
+-					{
+-						;//std::cout << "filed to get arrarySize\n";
+-					}
+-					else
+-					{
+-						// prepare to call getMaxFormatspecifierLen
+-						std::list<const Token *> parameters;
+-						const Token *argtok2 = formatSpecifierTok;
+-						while ((argtok2 = argtok2->nextArgument()) != nullptr) {
+-							if (Token::Match(argtok2, "%num%|%str% [,)]")) // push_back number and string parameters only
+-								parameters.push_back(argtok2);
+-							else
+-								parameters.push_back(nullptr);
+-						}
+-
+-						// 2. check %n
+-						MathLib::biguint expectedMaxlen = getMaxFormatspecifierLen(formatSpecifierTok, parameters);
+-						//std::cout << "dest_buff size = " << destBufSize << ", fmtstr " << argtok->str() + " expectedMaxlen = " << expectedMaxlen << "\n";
+-
+-						// 3. check buffer overflow
+-						if(destBufSize < expectedMaxlen + 1)
+-							reportError(tok, Severity::error, "securitycheck", tok->str() + " : buffer overflow detected");
+-
+-						// 4. check size_t is larger than bufsize
+-						if(MathLib::isInt(destBuffSizeTok->str()))
+-						{
+-							long long sizeTVal = MathLib::toLongNumber(destBuffSizeTok->str());
+-							if(destBufSize < sizeTVal)
+-								reportError(tok, Severity::error, "securitycheck", tok->str() + " : size_t is larger than dest_buff size");
+-						}
+-
+-						// 5. check if it process it's return value                       Is it worth it?
+-						// check if               == snprintf || != snprint || = snprintf || if ( snprintf;
+-		#if 0
+-						const Token* beforeTok = tok->tokAt(-1);
+-						if(!Token::Match(beforeTok, "==|!=|=")    ||	!Token::Match(beforeTok->previous(), "if (")     )
+-						{
+-							reportError(tok, Severity::error, "securitycheck", tok->str() + " : you need to check it's return value");
+-						}
+-		#endif
+-					}
+-
+-				}
+-			}
+-		}
+-
+-    	// best practice : strncpy(dest, src, sizeof(dest)-1); IS OK
+-		else if( Token::Match(tok, "strncpy ( %var% , %any% , %any%" ) || Token::Match(tok, "PCString :: Copy ( %var% , %any% , %any%"))
+-		{
+-			const Token *braceTok = NULL;
+-			if(tok->str() == "strncpy")
+-				braceTok = tok->tokAt(1);
+-			else if(tok->str() == "PCString")
+-				braceTok = tok->tokAt(3);
+-
+-			const Variable *var = braceTok->tokAt(1)->variable();
+-			if(var)
+-			{
+-				MathLib::bigint arraySize = getVarSize(var);
+-				if(arraySize != -1)
+-				{
+-					MathLib::bigint tobeCopiedSize = -1;
+-
+-					if(MathLib::isInt(braceTok->strAt(5))) // check number
+-						tobeCopiedSize = MathLib::toLongNumber(braceTok->strAt(5));
+-					else
+-						tobeCopiedSize = getNumFromStrlenSizeof(braceTok->tokAt(5));
+-
+-					// check buffer overrun
+-					if(arraySize + 1 <= tobeCopiedSize)
+-						reportError(tok, Severity::error, "securitycheck", tok->str() + " : buffer overflow detected");
+-
+-					// style err  :   strncpy(dest, "hello", strlen("hello")); is NOT OK
+-					if(Token::Match(braceTok, "( %var% , %str% , strlen ( %str%" ))
+-					{
+-						if(braceTok->tokAt(3)->str() == braceTok->tokAt(7)->str())
+-							reportError(tok, Severity::error, "securitycheck", tok->str() + " : strlen(\"str\") is Not OK. strncpy(dest, \"string\", sizeof(dest)-1) is OK");
+-					}
+-					// style err  :   strncpy(dest, src, strlen(src)); is NOT OK
+-					if(Token::Match(braceTok, "( %var% , %var% , strlen ( %var%" ))
+-					{
+-						if(braceTok->tokAt(3)->varId() == braceTok->tokAt(7)->varId())
+-							reportError(tok, Severity::error, "securitycheck", tok->str() + " : strlen(src) is Not OK. strncpy(dest, src, sizeof(dest)-1) is OK");
+-					}
+-				}
+-			}
+-		}
+-
+-
+-    	// best practice : strncat (dest, src, sizeof(dest) - 1 - strlen(dest));
+-    	// check 3rd parameter style only...
+-		else if( Token::Match(tok, "strncat ( %var% , %any% , %any%") )
+-		{
+-			if(tok->tokAt(1)->link()) // if there are bound
+-			{
+-				bool foundSizeof = false;
+-				bool foundStrlen = false;
+-				// search from 3rd param to bound
+-				for( const Token *startTok = tok->tokAt(6); startTok && startTok != tok->tokAt(1)->link(); startTok = startTok->next())
+-				{
+-					if(startTok->str() == "sizeof")
+-						foundSizeof = true;
+-					else if(startTok->str() == "strlen")
+-						foundStrlen = true;
+-				}
+-				if(!(foundSizeof && foundStrlen))
+-					reportError(tok, Severity::error, "securitycheck", tok->str() + " : cannot find sizeof and strlen in 3rd parameter. best practice is strncat (dest, src, sizeof(dest) - 1 - strlen(dest))");
+-			}
+-		}
+-
+-    	// best practice : fgets(dest, sizeof(dest), stdin);
+-		else if( Token::Match(tok, "fgets ( %var% , %any% , %any%" ))
+-		{
+-			const Variable *var = tok->tokAt(2)->variable();
+-			if(var)
+-			{
+-				MathLib::bigint arraySize = getVarSize(var);
+-				if(arraySize != -1)
+-				{
+-					MathLib::bigint tobeCopiedSize = -1;
+-					if(MathLib::isInt(tok->strAt(4))) // check number
+-						tobeCopiedSize = MathLib::toLongNumber(tok->strAt(4));
+-					else
+-						tobeCopiedSize = getNumFromStrlenSizeof(tok->tokAt(4));
+-
+-					if(arraySize < tobeCopiedSize)
+-						reportError(tok, Severity::error, "securitycheck", tok->str() + " : buffer overflow detected");
+-				}
+-			}
+-		}
+-
+-		else if( Token::Match(tok, "realpath ( %var% , %var% )"))
+-		{
+-			const Token* p_param = tok->tokAt(4);
+-
+-			const Variable *var = p_param->variable();
+-			if(var)
+-			{
+-				// check if char* var [ PATH_MAX
+-				if(var->isArray() && var->nameToken() && var->nameToken()->tokAt(1)
+-						&& !Token::Match(var->nameToken()->tokAt(1), "[ PATH_MAX") )
+-				{
+-						reportError(tok, Severity::error, "securitycheck", tok->str() + " : you need to set buffer size as PATH_MAX");
+-				}
+-
+-				// char *ptr ; ptr = malloc ( PATH_MAX
+-				else if(var->isPointer() && var->declEndToken()
+-						&& !Token::Match(var->declEndToken(), "; %var% = malloc ( PATH_MAX"))
+-				{
+-						reportError(tok, Severity::error, "securitycheck", tok->str() + " : you need to set buffer size as PATH_MAX");
+-				}
+-
+-			}
+-		}
+-
+-		else if( Token::Match(tok, "memcpy ( %var% , %any% , %any%" ) || Token::Match(tok, "PCMem :: Copy ( %var% , %any% , %any%"))
+-		{
+-
+-			const Token *braceTok = NULL;
+-			if(tok->str() == "memcpy")
+-				braceTok = tok->tokAt(1);
+-			else if(tok->str() == "PCMem")
+-				braceTok = tok->tokAt(3);
+-
+-			// check if 3rd param has strlen, then + 1 must be followed
+-			if(Token::Match(braceTok, "( %var% , %any% , strlen ( %any% " )
+-				&& !Token::Match(braceTok, "( %var% , %any% , strlen ( %any% ) + 1" ))
+-			{
+-					reportError(tok, Severity::error, "securitycheck", tok->str() + " : plz check if you copy the null byte. example strlen(x) + 1.");
+-			}
+-		}
+-
+-		// else if( Token::Match(tok, "scanf (
+-    	// scanf %Xs will be checked in checkio.cpp
+-    	// scanf|vscanf|sscanf|vsscanf|fscanf|vfscanf
+-
+-	} // end of for : iterate all token
+-
+-
+-
+-    // encapsulation broken case : set public ptr as a private member
+-    {
+-    	// get function DB
+-    	const SymbolDatabase *symbolDatabase = _tokenizer->getSymbolDatabase();
+-        const std::size_t functions = symbolDatabase->functionScopes.size();
+-        for (std::size_t i = 0; i < functions; ++i)
+-        {
+-        	// iterate all function
+-            const Scope * scope = symbolDatabase->functionScopes[i];
+-            if (scope && scope->functionOf && scope->functionOf->isClassOrStruct()
+-            				&& scope->function && scope->function->access == Public)
+-            {
+-            	// iterate all argument
+-				for (unsigned int i = 0; i < scope->function->argCount(); i++)
+-				{
+-					const Variable *arg = scope->function->getArgumentVar(i);
+-					if (arg && arg->declarationId() && Token::Match(arg->typeStartToken(), "%type% * %name% [,)]"))
+-					{
+-						for (const Token *tok = scope->classStart; tok != scope->classEnd; tok = tok->next())
+-						{
+-							if (Token::Match(tok, "[;{}] %var% = %varid% ;", arg->declarationId()))
+-							{
+-								const Token* p_param = tok->tokAt(1);
+-								const Variable *var = p_param->variable();
+-								if( var && var->isPrivate() )
+-								{
+-									reportError(tok, Severity::error, "securitycheck", p_param->str() + " : (broken capsulation) you should not assign a ptr to a private member.");
+-								}
+-							}
+-						}
+-					}
+-				}
+-			}
+-        }
+-    }
+-}
+-#endif // ENABLE_SECURITY_CHECKER
+-
+ void CheckBufferOverrun::checkGlobalAndLocalVariable()
+ {
+     // check string literals
+@@ -1886,22 +1122,6 @@
+         const Variable * const var = symbolDatabase->getVariableFromVarId(i);
+         if (var && var->isArray() && var->dimension(0) > 0) {
+             const Token *tok = var->nameToken();
+-
+-#if ENABLE_SECURITY_CHECKER
+-            // inspect VAR Name
+-            //std::cout << "VAR_NAME_TOKEN = " << tok->str() << "\n";
+-            if(hasSuspiciousVarName(tok->str()) && var->declEndToken())
+-            {
+-            	//std::cout << "suspicious var name detected" << "\n";
+-            	const Token* content_tok = var->declEndToken()->next();
+-            	if(content_tok->str() == "{" && content_tok->next() && MathLib::isInt(content_tok->next()->str())) // { 0xAB
+-            	{
+-           			//std::cout << "number initializer detected" << "\n";
+-            		reportError(tok, Severity::error, "securitycheck", tok->str() + " : you have hardcoded an important information. use secure storage instead.");
+-            	}
+-            }
+-#endif // ENABLE_SECURITY_CHECKER
+-
+             do {
+                 if (tok->str() == "{") {
+                     if (Token::simpleMatch(tok->previous(), "= {"))
+diff -Naur ./cppcheck-1.72/lib/checkbufferoverrun.h ./cppcheck-1.72_org/lib/checkbufferoverrun.h
+--- ./cppcheck-1.72/lib/checkbufferoverrun.h	2016-03-14 14:37:37.788409030 +0900
++++ ./cppcheck-1.72_org/lib/checkbufferoverrun.h	2016-01-09 22:50:01.000000000 +0900
+@@ -55,18 +55,6 @@
+         : Check(myName(), tokenizer, settings, errorLogger) {
+     }
+ 
+-#if ENABLE_SECURITY_CHECKER
+-    void runChecks(const Tokenizer *tokenizer, const Settings *settings, ErrorLogger *errorLogger) {
+-    	CheckBufferOverrun checkBufferOverrun(tokenizer, settings, errorLogger);
+-    	checkBufferOverrun.checkInsecureInputValueInjection();
+-    }
+-	/** Check for input injection due to using input value without white list checking to the exec family function */
+-	void checkInsecureInputValueInjection();
+-	MathLib::bigint getVarSize(const Variable *var);
+-	MathLib::bigint getNumFromStrlenSizeof(const Token* p_param);
+-	MathLib::biguint getMaxFormatspecifierLen(const Token* tok, const std::list<const Token*> &parameters);
+-#endif // ENABLE_SECURITY_CHECKER
+-
+     void runSimplifiedChecks(const Tokenizer *tokenizer, const Settings *settings, ErrorLogger *errorLogger) {
+         CheckBufferOverrun checkBufferOverrun(tokenizer, settings, errorLogger);
+         checkBufferOverrun.bufferOverrun();
+@@ -109,7 +97,7 @@
+ 
+     /** Check for buffer overruns due to copying command-line args to fixed-sized buffers without bounds checking */
+     void checkInsecureCmdLineArgs();
+-	
++
+     /** Information about N-dimensional array */
+     class CPPCHECKLIB ArrayInfo {
+     private:
+diff -Naur ./cppcheck-1.72/lib/checkio.cpp ./cppcheck-1.72_org/lib/checkio.cpp
+--- ./cppcheck-1.72/lib/checkio.cpp	2016-03-15 17:44:39.078908395 +0900
++++ ./cppcheck-1.72_org/lib/checkio.cpp	2016-01-09 22:50:01.000000000 +0900
+@@ -416,9 +416,7 @@
+ 
+ void CheckIO::invalidScanfError(const Token *tok)
+ {
+-#if ENABLE_SECURITY_CHECKER
+-	reportError(tok, Severity::error, "securitycheck", "scanf without field width limits can crash with huge input data.\n");
+-#else
++
+     reportError(tok, Severity::warning,
+                 "invalidscanf", "scanf without field width limits can crash with huge input data.\n"
+                 "scanf without field width limits can crash with huge input data. Add a field width "
+@@ -441,7 +439,6 @@
+                 "Source: http://linux.die.net/man/3/scanf\n"
+                 "Source: http://www.opensource.apple.com/source/xnu/xnu-1456.1.26/libkern/stdio/scanf.c"
+                );
+-#endif
+ }
+ 
+ //---------------------------------------------------------------------------
+diff -Naur ./cppcheck-1.72/lib/config.h ./cppcheck-1.72_org/lib/config.h
+--- ./cppcheck-1.72/lib/config.h	2016-01-15 10:41:58.335396317 +0900
++++ ./cppcheck-1.72_org/lib/config.h	2016-01-09 22:50:01.000000000 +0900
+@@ -22,6 +22,4 @@
+ #include <string>
+ static const std::string emptyString;
+ 
+-#define ENABLE_SECURITY_CHECKER 1
+-
+ #endif // configH
+diff -Naur ./cppcheck-1.72/lib/cppcheck.vcxproj ./cppcheck-1.72_org/lib/cppcheck.vcxproj
+--- ./cppcheck-1.72/lib/cppcheck.vcxproj	2016-03-10 06:51:26.768044500 +0900
++++ ./cppcheck-1.72_org/lib/cppcheck.vcxproj	2016-01-09 22:50:01.000000000 +0900
+@@ -35,27 +35,6 @@
+     </ProjectConfiguration>
+   </ItemGroup>
+   <ItemGroup>
+-    <ClCompile Include="..\externals\pcre_837_win32\pcre_byte_order.c" />
+-    <ClCompile Include="..\externals\pcre_837_win32\pcre_chartables.c" />
+-    <ClCompile Include="..\externals\pcre_837_win32\pcre_compile.c" />
+-    <ClCompile Include="..\externals\pcre_837_win32\pcre_config.c" />
+-    <ClCompile Include="..\externals\pcre_837_win32\pcre_dfa_exec.c" />
+-    <ClCompile Include="..\externals\pcre_837_win32\pcre_exec.c" />
+-    <ClCompile Include="..\externals\pcre_837_win32\pcre_fullinfo.c" />
+-    <ClCompile Include="..\externals\pcre_837_win32\pcre_get.c" />
+-    <ClCompile Include="..\externals\pcre_837_win32\pcre_globals.c" />
+-    <ClCompile Include="..\externals\pcre_837_win32\pcre_jit_compile.c" />
+-    <ClCompile Include="..\externals\pcre_837_win32\pcre_maketables.c" />
+-    <ClCompile Include="..\externals\pcre_837_win32\pcre_newline.c" />
+-    <ClCompile Include="..\externals\pcre_837_win32\pcre_ord2utf8.c" />
+-    <ClCompile Include="..\externals\pcre_837_win32\pcre_refcount.c" />
+-    <ClCompile Include="..\externals\pcre_837_win32\pcre_string_utils.c" />
+-    <ClCompile Include="..\externals\pcre_837_win32\pcre_study.c" />
+-    <ClCompile Include="..\externals\pcre_837_win32\pcre_tables.c" />
+-    <ClCompile Include="..\externals\pcre_837_win32\pcre_ucd.c" />
+-    <ClCompile Include="..\externals\pcre_837_win32\pcre_valid_utf8.c" />
+-    <ClCompile Include="..\externals\pcre_837_win32\pcre_version.c" />
+-    <ClCompile Include="..\externals\pcre_837_win32\pcre_xclass.c" />
+     <ClCompile Include="..\externals\tinyxml\tinyxml2.cpp" />
+     <ClCompile Include="astutils.cpp" />
+     <ClCompile Include="check.cpp">
+@@ -93,22 +72,16 @@
+     <ClCompile Include="checkunusedfunctions.cpp" />
+     <ClCompile Include="checkunusedvar.cpp" />
+     <ClCompile Include="checkvaarg.cpp" />
+-    <ClCompile Include="..\cli\cmdlineparser.cpp" />
+     <ClCompile Include="cppcheck.cpp" />
+-    <ClCompile Include="..\cli\cppcheckexecutor.cpp" />
+     <ClCompile Include="errorlogger.cpp" />
+-    <ClCompile Include="..\cli\filelister.cpp" />
+     <ClCompile Include="library.cpp" />
+-    <ClCompile Include="..\cli\main.cpp" />
+     <ClCompile Include="mathlib.cpp" />
+     <ClCompile Include="path.cpp" />
+-    <ClCompile Include="..\cli\pathmatch.cpp" />
+     <ClCompile Include="preprocessor.cpp" />
+     <ClCompile Include="settings.cpp" />
+     <ClCompile Include="suppressions.cpp" />
+     <ClCompile Include="symboldatabase.cpp" />
+     <ClCompile Include="templatesimplifier.cpp" />
+-    <ClCompile Include="..\cli\threadexecutor.cpp" />
+     <ClCompile Include="timer.cpp" />
+     <ClCompile Include="token.cpp" />
+     <ClCompile Include="tokenize.cpp" />
+@@ -116,13 +89,6 @@
+     <ClCompile Include="valueflow.cpp" />
+   </ItemGroup>
+   <ItemGroup>
+-    <ClInclude Include="..\cli\cmdlineparser.h" />
+-    <ClInclude Include="..\cli\cppcheckexecutor.h" />
+-    <ClInclude Include="..\cli\filelister.h" />
+-    <ClInclude Include="..\cli\pathmatch.h" />
+-    <ClInclude Include="..\cli\threadexecutor.h" />
+-    <ClInclude Include="..\externals\pcre.h" />
+-    <ClInclude Include="..\externals\pcre_internal.h" />
+     <ClInclude Include="..\externals\tinyxml\tinyxml2.h" />
+     <ClInclude Include="astutils.h" />
+     <ClInclude Include="check.h" />
+@@ -151,22 +117,17 @@
+     <ClInclude Include="checkunusedfunctions.h" />
+     <ClInclude Include="checkunusedvar.h" />
+     <ClInclude Include="checkvaarg.h" />
+-    <ClInclude Include="cmdlineparser.h" />
+     <ClInclude Include="config.h" />
+     <ClInclude Include="cppcheck.h" />
+-    <ClInclude Include="cppcheckexecutor.h" />
+     <ClInclude Include="errorlogger.h" />
+-    <ClInclude Include="filelister.h" />
+     <ClInclude Include="library.h" />
+     <ClInclude Include="mathlib.h" />
+     <ClInclude Include="path.h" />
+-    <ClInclude Include="pathmatch.h" />
+     <ClInclude Include="preprocessor.h" />
+     <ClInclude Include="settings.h" />
+     <ClInclude Include="suppressions.h" />
+     <ClInclude Include="symboldatabase.h" />
+     <ClInclude Include="templatesimplifier.h" />
+-    <ClInclude Include="threadexecutor.h" />
+     <ClInclude Include="timer.h" />
+     <ClInclude Include="token.h" />
+     <ClInclude Include="tokenize.h" />
+@@ -181,17 +142,16 @@
+   <PropertyGroup Label="Globals">
+     <ProjectGuid>{C183DB5B-AD6C-423D-80CA-1F9549555A1A}</ProjectGuid>
+     <RootNamespace>cppcheck_lib</RootNamespace>
+-    <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
+   </PropertyGroup>
+   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+-    <ConfigurationType>Application</ConfigurationType>
++    <ConfigurationType>DynamicLibrary</ConfigurationType>
+     <CharacterSet>Unicode</CharacterSet>
+     <WholeProgramOptimization>false</WholeProgramOptimization>
+     <PlatformToolset>v140_xp</PlatformToolset>
+   </PropertyGroup>
+   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug-PCRE|Win32'" Label="Configuration">
+-    <ConfigurationType>Application</ConfigurationType>
++    <ConfigurationType>DynamicLibrary</ConfigurationType>
+     <CharacterSet>Unicode</CharacterSet>
+     <WholeProgramOptimization>false</WholeProgramOptimization>
+     <PlatformToolset>v140_xp</PlatformToolset>
+@@ -215,7 +175,7 @@
+     <PlatformToolset>v140_xp</PlatformToolset>
+   </PropertyGroup>
+   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release-PCRE|Win32'" Label="Configuration">
+-    <ConfigurationType>Application</ConfigurationType>
++    <ConfigurationType>DynamicLibrary</ConfigurationType>
+     <CharacterSet>Unicode</CharacterSet>
+     <WholeProgramOptimization>false</WholeProgramOptimization>
+     <PlatformToolset>v140_xp</PlatformToolset>
+@@ -268,8 +228,8 @@
+     <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug-PCRE|Win32'">temp\$(Configuration)_$(PlatformName)\</IntDir>
+     <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">temp\$(Configuration)_$(PlatformName)\</IntDir>
+     <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug-PCRE|x64'">temp\$(Configuration)_$(PlatformName)\</IntDir>
+-    <TargetName Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">cppcheck</TargetName>
+-    <TargetName Condition="'$(Configuration)|$(Platform)'=='Debug-PCRE|Win32'">cppcheck</TargetName>
++    <TargetName Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">cppcheck-core</TargetName>
++    <TargetName Condition="'$(Configuration)|$(Platform)'=='Debug-PCRE|Win32'">cppcheck-core</TargetName>
+     <TargetName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">cppcheck-core</TargetName>
+     <TargetName Condition="'$(Configuration)|$(Platform)'=='Debug-PCRE|x64'">cppcheck-core</TargetName>
+     <IgnoreImportLibrary Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</IgnoreImportLibrary>
+@@ -285,7 +245,7 @@
+     <IntDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">temp\$(Configuration)_$(PlatformName)\</IntDir>
+     <IntDir Condition="'$(Configuration)|$(Platform)'=='Release-PCRE|x64'">temp\$(Configuration)_$(PlatformName)\</IntDir>
+     <TargetName Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">cppcheck-core</TargetName>
+-    <TargetName Condition="'$(Configuration)|$(Platform)'=='Release-PCRE|Win32'">cppcheck</TargetName>
++    <TargetName Condition="'$(Configuration)|$(Platform)'=='Release-PCRE|Win32'">cppcheck-core</TargetName>
+     <TargetName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">cppcheck-core</TargetName>
+     <TargetName Condition="'$(Configuration)|$(Platform)'=='Release-PCRE|x64'">cppcheck-core</TargetName>
+     <IgnoreImportLibrary Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</IgnoreImportLibrary>
+@@ -306,7 +266,7 @@
+       <WarningLevel>Level4</WarningLevel>
+       <AdditionalIncludeDirectories>..\externals;..\externals\tinyxml;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+       <DisableSpecificWarnings>4251;4482;4512</DisableSpecificWarnings>
+-      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
++      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+       <PrecompiledHeader>Use</PrecompiledHeader>
+       <PrecompiledHeaderFile>check.h</PrecompiledHeaderFile>
+       <ForcedIncludeFiles>check.h</ForcedIncludeFiles>
+@@ -317,7 +277,6 @@
+       <SuppressStartupBanner>true</SuppressStartupBanner>
+       <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
+       <LargeAddressAware>true</LargeAddressAware>
+-      <AdditionalDependencies>kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies);shlwapi.lib</AdditionalDependencies>
+     </Link>
+     <PostBuildEvent>
+       <Command>xcopy "$(SolutionDir)cfg" "$(OutDir)cfg" /E /I /D /Y</Command>
+@@ -328,18 +287,17 @@
+       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+       <MultiProcessorCompilation>true</MultiProcessorCompilation>
+       <Optimization>Disabled</Optimization>
+-      <PreprocessorDefinitions>CPPCHECKLIB_EXPORT;TINYXML2_EXPORT;WIN32;HAVE_RULES;_CRT_SECURE_NO_WARNINGS;WIN32_LEAN_AND_MEAN;TIXML_USE_STL;%(PreprocessorDefinitions);HAVE_CONFIG_H</PreprocessorDefinitions>
++      <PreprocessorDefinitions>CPPCHECKLIB_EXPORT;TINYXML2_EXPORT;WIN32;HAVE_RULES;_CRT_SECURE_NO_WARNINGS;WIN32_LEAN_AND_MEAN;TIXML_USE_STL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+       <WarningLevel>Level4</WarningLevel>
+-      <AdditionalIncludeDirectories>..\lib;..\externals;..\externals\tinyxml;..\externals\pcre_837_win32;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
++      <AdditionalIncludeDirectories>..\externals;..\externals\tinyxml;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+       <DisableSpecificWarnings>4251;4482;4512</DisableSpecificWarnings>
+-      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
++      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
++      <PrecompiledHeader>Use</PrecompiledHeader>
+       <PrecompiledHeaderFile>check.h</PrecompiledHeaderFile>
+-      <ForcedIncludeFiles>
+-      </ForcedIncludeFiles>
++      <ForcedIncludeFiles>check.h</ForcedIncludeFiles>
+     </ClCompile>
+     <Link>
+-      <AdditionalDependencies>shlwapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
++      <AdditionalDependencies>pcre.lib;%(AdditionalDependencies)</AdditionalDependencies>
+       <AdditionalLibraryDirectories>../externals;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+       <GenerateDebugInformation>true</GenerateDebugInformation>
+       <SuppressStartupBanner>true</SuppressStartupBanner>
+@@ -441,30 +399,27 @@
+       <OmitFramePointers>true</OmitFramePointers>
+       <StringPooling>true</StringPooling>
+       <FunctionLevelLinking>true</FunctionLevelLinking>
+-      <AdditionalIncludeDirectories>..\lib;..\cli;..\externals;..\externals\tinyxml;..\externals\pcre_837_win32;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
++      <AdditionalIncludeDirectories>..\externals;..\externals\tinyxml;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+       <DisableSpecificWarnings>4251;4482;4512</DisableSpecificWarnings>
+-      <PreprocessorDefinitions>CPPCHECKLIB_EXPORT;TINYXML2_EXPORT;NDEBUG;WIN32;HAVE_RULES;_CRT_SECURE_NO_WARNINGS;WIN32_LEAN_AND_MEAN;TIXML_USE_STL;%(PreprocessorDefinitions);HAVE_CONFIG_H</PreprocessorDefinitions>
+-      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
++      <PreprocessorDefinitions>CPPCHECKLIB_EXPORT;TINYXML2_EXPORT;NDEBUG;WIN32;HAVE_RULES;_CRT_SECURE_NO_WARNINGS;WIN32_LEAN_AND_MEAN;TIXML_USE_STL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
++      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+       <DebugInformationFormat>
+       </DebugInformationFormat>
+       <MultiProcessorCompilation>true</MultiProcessorCompilation>
+       <BufferSecurityCheck>false</BufferSecurityCheck>
+-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+-      <PrecompiledHeaderFile>
+-      </PrecompiledHeaderFile>
+-      <ForcedIncludeFiles>
+-      </ForcedIncludeFiles>
++      <PrecompiledHeader>Use</PrecompiledHeader>
++      <PrecompiledHeaderFile>check.h</PrecompiledHeaderFile>
++      <ForcedIncludeFiles>check.h</ForcedIncludeFiles>
+       <AdditionalOptions>/Zc:inline /Zc:throwingNew %(AdditionalOptions)</AdditionalOptions>
+     </ClCompile>
+     <Link>
+-      <AdditionalDependencies>%(AdditionalDependencies);shlwapi.lib</AdditionalDependencies>
++      <AdditionalDependencies>pcre.lib;%(AdditionalDependencies)</AdditionalDependencies>
+       <AdditionalLibraryDirectories>../externals;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+       <GenerateDebugInformation>false</GenerateDebugInformation>
+       <OptimizeReferences>true</OptimizeReferences>
+       <EnableCOMDATFolding>true</EnableCOMDATFolding>
+       <SetChecksum>true</SetChecksum>
+       <LargeAddressAware>true</LargeAddressAware>
+-      <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
+     </Link>
+     <PostBuildEvent>
+       <Command>xcopy "$(SolutionDir)cfg" "$(OutDir)cfg" /E /I /D /Y</Command>
+diff -Naur ./cppcheck-1.72/lib/cppcheck.vcxproj.filters ./cppcheck-1.72_org/lib/cppcheck.vcxproj.filters
+--- ./cppcheck-1.72/lib/cppcheck.vcxproj.filters	2016-03-09 20:24:45.336573300 +0900
++++ ./cppcheck-1.72_org/lib/cppcheck.vcxproj.filters	2016-01-09 22:50:01.000000000 +0900
+@@ -140,87 +140,6 @@
+     <ClCompile Include="checkfunctions.cpp">
+       <Filter>Source Files</Filter>
+     </ClCompile>
+-    <ClCompile Include="..\externals\pcre_837_win32\pcre_byte_order.c">
+-      <Filter>Source Files</Filter>
+-    </ClCompile>
+-    <ClCompile Include="..\externals\pcre_837_win32\pcre_chartables.c">
+-      <Filter>Source Files</Filter>
+-    </ClCompile>
+-    <ClCompile Include="..\externals\pcre_837_win32\pcre_compile.c">
+-      <Filter>Source Files</Filter>
+-    </ClCompile>
+-    <ClCompile Include="..\externals\pcre_837_win32\pcre_config.c">
+-      <Filter>Source Files</Filter>
+-    </ClCompile>
+-    <ClCompile Include="..\externals\pcre_837_win32\pcre_dfa_exec.c">
+-      <Filter>Source Files</Filter>
+-    </ClCompile>
+-    <ClCompile Include="..\externals\pcre_837_win32\pcre_exec.c">
+-      <Filter>Source Files</Filter>
+-    </ClCompile>
+-    <ClCompile Include="..\externals\pcre_837_win32\pcre_fullinfo.c">
+-      <Filter>Source Files</Filter>
+-    </ClCompile>
+-    <ClCompile Include="..\externals\pcre_837_win32\pcre_get.c">
+-      <Filter>Source Files</Filter>
+-    </ClCompile>
+-    <ClCompile Include="..\externals\pcre_837_win32\pcre_globals.c">
+-      <Filter>Source Files</Filter>
+-    </ClCompile>
+-    <ClCompile Include="..\externals\pcre_837_win32\pcre_jit_compile.c">
+-      <Filter>Source Files</Filter>
+-    </ClCompile>
+-    <ClCompile Include="..\externals\pcre_837_win32\pcre_maketables.c">
+-      <Filter>Source Files</Filter>
+-    </ClCompile>
+-    <ClCompile Include="..\externals\pcre_837_win32\pcre_newline.c">
+-      <Filter>Source Files</Filter>
+-    </ClCompile>
+-    <ClCompile Include="..\externals\pcre_837_win32\pcre_ord2utf8.c">
+-      <Filter>Source Files</Filter>
+-    </ClCompile>
+-    <ClCompile Include="..\externals\pcre_837_win32\pcre_refcount.c">
+-      <Filter>Source Files</Filter>
+-    </ClCompile>
+-    <ClCompile Include="..\externals\pcre_837_win32\pcre_string_utils.c">
+-      <Filter>Source Files</Filter>
+-    </ClCompile>
+-    <ClCompile Include="..\externals\pcre_837_win32\pcre_study.c">
+-      <Filter>Source Files</Filter>
+-    </ClCompile>
+-    <ClCompile Include="..\externals\pcre_837_win32\pcre_tables.c">
+-      <Filter>Source Files</Filter>
+-    </ClCompile>
+-    <ClCompile Include="..\externals\pcre_837_win32\pcre_ucd.c">
+-      <Filter>Source Files</Filter>
+-    </ClCompile>
+-    <ClCompile Include="..\externals\pcre_837_win32\pcre_valid_utf8.c">
+-      <Filter>Source Files</Filter>
+-    </ClCompile>
+-    <ClCompile Include="..\externals\pcre_837_win32\pcre_version.c">
+-      <Filter>Source Files</Filter>
+-    </ClCompile>
+-    <ClCompile Include="..\externals\pcre_837_win32\pcre_xclass.c">
+-      <Filter>Source Files</Filter>
+-    </ClCompile>
+-    <ClCompile Include="..\cli\cmdlineparser.cpp">
+-      <Filter>Source Files</Filter>
+-    </ClCompile>
+-    <ClCompile Include="..\cli\cppcheckexecutor.cpp">
+-      <Filter>Source Files</Filter>
+-    </ClCompile>
+-    <ClCompile Include="..\cli\filelister.cpp">
+-      <Filter>Source Files</Filter>
+-    </ClCompile>
+-    <ClCompile Include="..\cli\main.cpp">
+-      <Filter>Source Files</Filter>
+-    </ClCompile>
+-    <ClCompile Include="..\cli\pathmatch.cpp">
+-      <Filter>Source Files</Filter>
+-    </ClCompile>
+-    <ClCompile Include="..\cli\threadexecutor.cpp">
+-      <Filter>Source Files</Filter>
+-    </ClCompile>
+   </ItemGroup>
+   <ItemGroup>
+     <ClInclude Include="checkbufferoverrun.h">
+@@ -361,42 +280,6 @@
+     <ClInclude Include="checkfunctions.h">
+       <Filter>Header Files</Filter>
+     </ClInclude>
+-    <ClInclude Include="cmdlineparser.h">
+-      <Filter>Source Files</Filter>
+-    </ClInclude>
+-    <ClInclude Include="cppcheckexecutor.h">
+-      <Filter>Source Files</Filter>
+-    </ClInclude>
+-    <ClInclude Include="filelister.h">
+-      <Filter>Source Files</Filter>
+-    </ClInclude>
+-    <ClInclude Include="pathmatch.h">
+-      <Filter>Source Files</Filter>
+-    </ClInclude>
+-    <ClInclude Include="threadexecutor.h">
+-      <Filter>Source Files</Filter>
+-    </ClInclude>
+-    <ClInclude Include="..\externals\pcre.h">
+-      <Filter>Source Files</Filter>
+-    </ClInclude>
+-    <ClInclude Include="..\externals\pcre_internal.h">
+-      <Filter>Source Files</Filter>
+-    </ClInclude>
+-    <ClInclude Include="..\cli\filelister.h">
+-      <Filter>Header Files</Filter>
+-    </ClInclude>
+-    <ClInclude Include="..\cli\pathmatch.h">
+-      <Filter>Header Files</Filter>
+-    </ClInclude>
+-    <ClInclude Include="..\cli\threadexecutor.h">
+-      <Filter>Header Files</Filter>
+-    </ClInclude>
+-    <ClInclude Include="..\cli\cmdlineparser.h">
+-      <Filter>Header Files</Filter>
+-    </ClInclude>
+-    <ClInclude Include="..\cli\cppcheckexecutor.h">
+-      <Filter>Header Files</Filter>
+-    </ClInclude>
+   </ItemGroup>
+   <ItemGroup>
+     <ResourceCompile Include="version.rc" />
+diff -Naur ./cppcheck-1.72/lib/preprocessor.cpp ./cppcheck-1.72_org/lib/preprocessor.cpp
+--- ./cppcheck-1.72/lib/preprocessor.cpp	2016-03-18 12:59:53.045522680 +0900
++++ ./cppcheck-1.72_org/lib/preprocessor.cpp	2016-01-09 22:50:01.000000000 +0900
+@@ -747,23 +747,8 @@
+     std::ostringstream ret;
+     std::istringstream istr(code);
+     std::string line;
+-
+-    unsigned int consequenctLineHasDefine = 0;
+     while (std::getline(istr,line)) {
+         ret << line << "\n";
+-
+-        // patch for scaleability issue by bravejw
+-        if (line.compare(0, 8, "#define ") == 0)
+-        	consequenctLineHasDefine++;
+-        else
+-        	consequenctLineHasDefine = 0;
+-
+-        if(consequenctLineHasDefine > 500)
+-        {
+-        	//std::cout << "consequenctLineHasDefine over 500 so, just return \n";
+-        	return ret.str();
+-        }
+-
+         if (line == "#if 0") {
+             // goto the end of the '#if 0' block
+             unsigned int level = 1;
+diff -Naur ./cppcheck-1.72/lib/valueflow.cpp ./cppcheck-1.72_org/lib/valueflow.cpp
+--- ./cppcheck-1.72/lib/valueflow.cpp	2016-03-09 17:33:36.547851081 +0900
++++ ./cppcheck-1.72_org/lib/valueflow.cpp	2016-01-09 22:50:01.000000000 +0900
+@@ -2267,134 +2267,6 @@
+     return tok && tok->values.size() == 1U && tok->values.front().varId == 0U;
+ }
+ 
+-#if ENABLE_SECURITY_CHECKER
+-#include <iostream>
+-static void valueFlowAtoiStrlenAndMarkInsecureInput(TokenList *tokenlist, ErrorLogger *errorLogger, const Settings *settings)
+-{
+-    for (Token *tok = tokenlist->front(); tok; tok = tok->next()) {
+-
+-
+-		//////////////////////////////// process atoi|strlen //////////////////////////////////////
+-		if (Token::Match(tok, "atoi|strlen ("))
+-		{
+-			//std::cout << "Meet " + tok->str() + "param = " + tok->tokAt(2)->str() + "\n";
+-			Token *tok_param = tok->tokAt(2);
+-			if (tok_param)
+-			{
+-				Token *tok_str_num = NULL;
+-
+-				// get tok_str from literal val
+-				if(tok_param->tokType() == Token::eString)
+-				{
+-					tok_str_num = tok_param;
+-				}
+-				// get tok_str from variable's declaration
+-				else if(tok_param->tokType() == Token::eVariable)
+-				{
+-					const Variable *var = tok_param->variable();
+-					if (var && var->isArrayOrPointer())
+-					{
+-						const Token* tok_var_init = var->nameToken()->next();
+-						if (Token::Match(tok_var_init, "; %varid% = %any% ;", var->declarationId())) // var = "XXX"
+-						{
+-							if(tok_var_init->tokAt(3)->tokType() == Token::eString)
+-								tok_str_num = const_cast<Token*>(tok_var_init->tokAt(3));
+-						}
+-					}
+-				}
+-
+-				// process tok_str_num and addVal
+-				if (tok_str_num && tok_str_num->str().length() > 2)
+-				{
+-					std::string str_str_num = tok_str_num->str().substr(1, tok_str_num->str().length() - 2); // eliminate "
+-					if(str_str_num.length() > 0 && MathLib::isInt(str_str_num))
+-					{
+-						//std::cout << __LINE__;
+-						long long actualVal = 0;
+-						if(tok->str() == "atoi")
+-						{
+-							actualVal = MathLib::toLongNumber(str_str_num);
+-						}
+-						else if(tok->str() == "strlen")
+-						{
+-							actualVal = str_str_num.length();
+-						}
+-						else
+-						{
+-							;//std::cout << "PLANK PLANK !!! internal ERROR" << __FILE__ << __LINE__ << "\n";
+-						}
+-
+-						ValueFlow::Value value(actualVal);
+-						value.setKnown();
+-						addValue(const_cast<Token*>(tok->astParent()), value);
+-						//std::cout << __LINE__;
+-					}
+-				}
+-			}
+-		}
+-		//////////////////////////////// EOF process atoi|strlen /////////////////////////////////////
+-
+-		if (Token::Match(tok, "scanf (") )
+-		{
+-			//std::cout << tok->str() << " in the value flow\n";
+-			const Token *argtok2 = tok->tokAt(2);
+-			while ((argtok2 = argtok2->nextArgument()) != nullptr)
+-			{
+-				//std::cout << "found argtok2 = " << argtok2->str() << "and id = " << argtok2->varId() << "\n";
+-				const Variable * const var = argtok2->variable();
+-
+-				if (!var)// || (!var->isLocal() && !var->isArgument())) // skip some
+-					continue;
+-
+-				//std::cout << "setting inSecureInputValue \n";
+-
+-				//setTokenValue(const_cast<Token*>(argtok2) , value); // try to move flow number?
+-
+-				ValueFlow::Value value(1234); // number or string...
+-				value.tokvalue = tok; // scanf
+-				value.inSecureInputValue = true; // insecure input value
+-				value.setKnown();
+-				value.varId = argtok2->varId();
+-				std::list<ValueFlow::Value> values;// = argtok2->values;
+-				values.push_back(value);
+-
+-				valueFlowForward(tok, var->typeStartToken()->scope()->classEnd, var, argtok2->varId(),
+-						values, argtok2->isNumber(), tokenlist, errorLogger, settings);
+-			}
+-		}
+-		else if (Token::Match(tok, "strcpy|strncpy|strcat|strncat|fgets|gets ("))
+-		{
+-			//std::cout << tok->str() << " in the value flow\n";
+-			const Token *argtok2 = tok->tokAt(2);
+-
+-			//std::cout << "found argtok2 = " << argtok2->str() << "and id = " << argtok2->varId() << "\n";
+-			const Variable * const var = argtok2->variable();
+-
+-			if (var)
+-			{
+-				//std::cout << "setting inSecureInputValue \n";
+-				//setTokenValue(const_cast<Token*>(argtok2) , value); // try to move flow number?
+-
+-				ValueFlow::Value value(1234); // number or string...
+-				value.tokvalue = tok; // strcat
+-				value.inSecureInputValue = true; // insecure input value
+-				value.setKnown();
+-				value.varId = argtok2->varId();
+-				std::list<ValueFlow::Value> values;// = argtok2->values;
+-				values.push_back(value);
+-
+-				valueFlowForward(tok, var->typeStartToken()->scope()->classEnd, var, argtok2->varId(),
+-						values, argtok2->isNumber(), tokenlist, errorLogger, settings);
+-			}
+-			else // in case of literal
+-			{
+-				//std::cout << "simplified immediate value is inputed\n";
+-			}
+-		}
+-	}
+-}
+-#endif // ENABLE_SECURITY_CHECKER
+-
+ static void valueFlowFunctionReturn(TokenList *tokenlist, ErrorLogger *errorLogger, const Settings *settings)
+ {
+     for (Token *tok = tokenlist->front(); tok; tok = tok->next()) {
+@@ -2463,9 +2335,6 @@
+     valueFlowString(tokenlist);
+     valueFlowArray(tokenlist);
+     valueFlowPointerAlias(tokenlist);
+-#if ENABLE_SECURITY_CHECKER
+-	valueFlowAtoiStrlenAndMarkInsecureInput(tokenlist, errorLogger, settings);
+-#endif // ENABLE_SECURITY_CHECKER
+     valueFlowFunctionReturn(tokenlist, errorLogger, settings);
+     valueFlowBitAnd(tokenlist);
+     valueFlowForLoop(tokenlist, symboldatabase, errorLogger, settings);
+diff -Naur ./cppcheck-1.72/lib/valueflow.h ./cppcheck-1.72_org/lib/valueflow.h
+--- ./cppcheck-1.72/lib/valueflow.h	2016-01-15 10:47:19.028706044 +0900
++++ ./cppcheck-1.72_org/lib/valueflow.h	2016-01-09 22:50:01.000000000 +0900
+@@ -33,14 +33,8 @@
+ namespace ValueFlow {
+     class CPPCHECKLIB Value {
+     public:
+-	
+-#if ENABLE_SECURITY_CHECKER
+-        explicit Value(long long val = 0) : intvalue(val), tokvalue(nullptr), varvalue(val), condition(0), varId(0U), conditional(false), inconclusive(false), defaultArg(false), valueKind(ValueKind::Possible), inSecureInputValue(false)  {}
+-        Value(const Token *c, long long val) : intvalue(val), tokvalue(nullptr), varvalue(val), condition(c), varId(0U), conditional(false), inconclusive(false), defaultArg(false), valueKind(ValueKind::Possible), inSecureInputValue(false)  {}
+-#else
+         explicit Value(long long val = 0) : intvalue(val), tokvalue(nullptr), varvalue(val), condition(0), varId(0U), conditional(false), inconclusive(false), defaultArg(false), valueKind(ValueKind::Possible) {}
+         Value(const Token *c, long long val) : intvalue(val), tokvalue(nullptr), varvalue(val), condition(c), varId(0U), conditional(false), inconclusive(false), defaultArg(false), valueKind(ValueKind::Possible) {}
+-#endif
+ 
+         /** int value */
+         long long intvalue;
+@@ -78,10 +72,6 @@
+             Min
+         } valueKind;
+ 
+-#if ENABLE_SECURITY_CHECKER
+-        bool inSecureInputValue;
+-#endif
+-
+         void setKnown() {
+             valueKind = ValueKind::Known;
+         }
+diff -Naur ./cppcheck-1.72/test/security/10.c ./cppcheck-1.72_org/test/security/10.c
+--- ./cppcheck-1.72/test/security/10.c	2016-03-10 15:15:15.987810846 +0900
++++ ./cppcheck-1.72_org/test/security/10.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,19 +0,0 @@
+-//[TCFILE:8]: (error) non abs command injection"rm -rf"\n
+-// ptr function flow
+-#include <stdio.h>
+-#include <unistd.h>
+-#include <stdlib.h>
+-void myF(char* param)
+-{
+-	execl(param, param, NULL);
+-}
+-void f()
+-{
+-	char *inVal = "/sh -alh";
+-	inVal = "rm -rf";
+-	myF(inVal);
+-}
+-void main()
+-{
+-	f();
+-}
+diff -Naur ./cppcheck-1.72/test/security/11.c ./cppcheck-1.72_org/test/security/11.c
+--- ./cppcheck-1.72/test/security/11.c	2016-03-10 15:18:19.487810752 +0900
++++ ./cppcheck-1.72_org/test/security/11.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,19 +0,0 @@
+-//[TCFILE:7]: (error) Insecure input value injected from scanf[TCFILE:13] to param\n
+-// ptr scanf injection function flow
+-#include <stdio.h>
+-#include <unistd.h>
+-void myF(char* param)
+-{
+-	execl(param, param, NULL);
+-}
+-void f()
+-{
+-	char *inVal = "/sh -alh";
+-	inVal = "rm -rf";
+-	scanf("%s", inVal);
+-	myF(inVal);
+-}
+-void main()
+-{
+-	f();
+-}
+diff -Naur ./cppcheck-1.72/test/security/12.c ./cppcheck-1.72_org/test/security/12.c
+--- ./cppcheck-1.72/test/security/12.c	2016-03-10 15:29:13.095810415 +0900
++++ ./cppcheck-1.72_org/test/security/12.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,26 +0,0 @@
+-//[TCFILE:18]: (error) Insecure input value injected from scanf[TCFILE:10] to inVal\n
+-// ptr scanf injection and sqlite3_exec
+-#include <stdio.h>
+-#include <stdlib.h>
+-#include "sqlite3.h"
+-
+-void f()
+-{
+-	char *inVal = malloc(64);
+-	scanf("%s", inVal);
+-
+-	sqlite3* db;
+-	int ret = sqlite3_open("my.db", &db);
+-
+-	//if (ret == SQLITE_OK)
+-	{
+-		char* errMsg = NULL;
+-		ret = sqlite3_exec(db, inVal, 0, 0, &errMsg);
+-	}
+-
+-
+-}
+-void main()
+-{
+-	f();
+-}
+diff -Naur ./cppcheck-1.72/test/security/13.c ./cppcheck-1.72_org/test/security/13.c
+--- ./cppcheck-1.72/test/security/13.c	2016-03-10 15:10:27.339810995 +0900
++++ ./cppcheck-1.72_org/test/security/13.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,13 +0,0 @@
+-//
+-// SSL OPT
+-#include <curl/curl.h>
+-void f()
+-{
+-	curl_global_init( CURL_GLOBAL_ALL ) ;
+-	CURL* easy_handle = curl_easy_init() ;
+-	curl_easy_setopt ( easy_handle ,CURLOPT_SSL_VERIFYPEER, 1L);
+-}
+-void main()
+-{
+-	f();
+-}
+diff -Naur ./cppcheck-1.72/test/security/14.c ./cppcheck-1.72_org/test/security/14.c
+--- ./cppcheck-1.72/test/security/14.c	2016-03-10 15:19:08.815810726 +0900
++++ ./cppcheck-1.72_org/test/security/14.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,12 +0,0 @@
+-//[TCFILE:7]: (error) CURLOPT_SSL_VERIFYPEER is disabled.\n
+-#include <curl/curl.h>
+-void f()
+-{
+-	curl_global_init( CURL_GLOBAL_ALL ) ;
+-	CURL* easy_handle = curl_easy_init() ;
+-    curl_easy_setopt ( easy_handle ,CURLOPT_SSL_VERIFYPEER, 0L);
+-}
+-void main()
+-{
+-	f();
+-}
+diff -Naur ./cppcheck-1.72/test/security/15.c ./cppcheck-1.72_org/test/security/15.c
+--- ./cppcheck-1.72/test/security/15.c	2016-03-10 15:11:50.059810952 +0900
++++ ./cppcheck-1.72_org/test/security/15.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,13 +0,0 @@
+-//
+-#include <curl/curl.h>
+-void f()
+-{
+-	curl_global_init( CURL_GLOBAL_ALL ) ;
+-	CURL* easy_handle = curl_easy_init() ;
+-    curl_easy_setopt ( easy_handle ,CURLOPT_SSL_VERIFYHOST, 2L);
+-}
+-void main()
+-{
+-	f();
+-}
+-				  
+diff -Naur ./cppcheck-1.72/test/security/16.c ./cppcheck-1.72_org/test/security/16.c
+--- ./cppcheck-1.72/test/security/16.c	2016-03-10 15:19:11.603810725 +0900
++++ ./cppcheck-1.72_org/test/security/16.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,12 +0,0 @@
+-//[TCFILE:7]: (error) CURLOPT_SSL_VERIFYHOST is disabled.\n
+-#include <curl/curl.h>
+-void f()
+-{
+-	curl_global_init( CURL_GLOBAL_ALL ) ;
+-	CURL* easy_handle = curl_easy_init() ;
+-    curl_easy_setopt ( easy_handle ,CURLOPT_SSL_VERIFYHOST, 0L);
+-}
+-void main()
+-{
+-	f();
+-}
+diff -Naur ./cppcheck-1.72/test/security/17.c ./cppcheck-1.72_org/test/security/17.c
+--- ./cppcheck-1.72/test/security/17.c	2016-03-10 15:11:51.863810951 +0900
++++ ./cppcheck-1.72_org/test/security/17.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,12 +0,0 @@
+-//
+-#include <curl/curl.h>
+-void f()
+-{
+-	curl_global_init( CURL_GLOBAL_ALL ) ;
+-	CURL* easy_handle = curl_easy_init() ;
+-    curl_easy_setopt ( easy_handle, CURLOPT_SSLVERSION, CURL_SSLVERSION_TLSv1_2);
+-}
+-void main()
+-{
+-	f();
+-}
+diff -Naur ./cppcheck-1.72/test/security/18.c ./cppcheck-1.72_org/test/security/18.c
+--- ./cppcheck-1.72/test/security/18.c	2016-03-10 15:19:14.803810723 +0900
++++ ./cppcheck-1.72_org/test/security/18.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,12 +0,0 @@
+-//[TCFILE:7]: (error) CURL_SSLVERSION_SSLv2,3 is not permitted.\n
+-#include <curl/curl.h>
+-void f()
+-{
+-	curl_global_init( CURL_GLOBAL_ALL ) ;
+-	CURL* easy_handle = curl_easy_init() ;
+-	curl_easy_setopt ( easy_handle, CURLOPT_SSLVERSION, CURL_SSLVERSION_SSLv2);
+-}
+-void main()
+-{
+-	f();
+-}
+diff -Naur ./cppcheck-1.72/test/security/19.c ./cppcheck-1.72_org/test/security/19.c
+--- ./cppcheck-1.72/test/security/19.c	2016-03-10 15:19:17.747810722 +0900
++++ ./cppcheck-1.72_org/test/security/19.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,12 +0,0 @@
+-//[TCFILE:7]: (error) CURL_SSLVERSION_SSLv2,3 is not permitted.\n
+-#include <curl/curl.h>
+-void f()
+-{
+-	curl_global_init( CURL_GLOBAL_ALL ) ;
+-	CURL* easy_handle = curl_easy_init() ;
+-    curl_easy_setopt ( easy_handle, CURLOPT_SSLVERSION, CURL_SSLVERSION_SSLv3);
+-}
+-void main()
+-{
+-	f();
+-}
+diff -Naur ./cppcheck-1.72/test/security/1.c ./cppcheck-1.72_org/test/security/1.c
+--- ./cppcheck-1.72/test/security/1.c	2016-03-10 15:15:23.379810842 +0900
++++ ./cppcheck-1.72_org/test/security/1.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,12 +0,0 @@
+-//
+-//abs path
+-#include <stdio.h>
+-#include <unistd.h>
+-void f()
+-{
+-	execl("/sh", "/sh", NULL);
+-}
+-void main()
+-{
+-	f();
+-}
+diff -Naur ./cppcheck-1.72/test/security/20.c ./cppcheck-1.72_org/test/security/20.c
+--- ./cppcheck-1.72/test/security/20.c	2016-03-11 12:59:37.607320504 +0900
++++ ./cppcheck-1.72_org/test/security/20.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,9 +0,0 @@
+-//[TCFILE:4]: (error) chmod : you requested too much permission.\n
+-void f()
+-{
+-	chmod ("/usr/bin/elfbin", 0777);
+-}
+-void main()
+-{
+-	f();
+-}
+diff -Naur ./cppcheck-1.72/test/security/21.c ./cppcheck-1.72_org/test/security/21.c
+--- ./cppcheck-1.72/test/security/21.c	2016-03-11 12:59:43.647320609 +0900
++++ ./cppcheck-1.72_org/test/security/21.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,9 +0,0 @@
+-//
+-void f()
+-{
+-    chmod ( "/usr/bin/elfbin", 0400);
+-}
+-void main()
+-{
+-	f();
+-}
+diff -Naur ./cppcheck-1.72/test/security/22.c ./cppcheck-1.72_org/test/security/22.c
+--- ./cppcheck-1.72/test/security/22.c	2016-03-10 15:21:01.235810668 +0900
++++ ./cppcheck-1.72_org/test/security/22.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,10 +0,0 @@
+-//[TCFILE:5]: (error) chmod : you requested too much permission.\n
+-#include <sys/stat.h>
+-void f()
+-{
+-  chmod ( "/usr/bin/elfbin", S_IRWXU);
+-}
+-void main()
+-{
+-	f();
+-}
+diff -Naur ./cppcheck-1.72/test/security/23.c ./cppcheck-1.72_org/test/security/23.c
+--- ./cppcheck-1.72/test/security/23.c	2016-03-10 15:06:56.931811103 +0900
++++ ./cppcheck-1.72_org/test/security/23.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,10 +0,0 @@
+-//
+-#include <sys/stat.h>
+-void f()
+-{
+-	chmod ( "/usr/bin/elfbin", S_IRUSR);
+-}
+-void main()
+-{
+-	f();
+-}
+diff -Naur ./cppcheck-1.72/test/security/24.c ./cppcheck-1.72_org/test/security/24.c
+--- ./cppcheck-1.72/test/security/24.c	2016-03-10 15:14:45.855810862 +0900
++++ ./cppcheck-1.72_org/test/security/24.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,9 +0,0 @@
+-//[TCFILE:4]: (error) chown : you requested too much permission.\n
+-void f()
+-{
+-    chown ( "/usr/bin/elfbin", 0, 0);
+-}
+-void main()
+-{
+-	f();
+-}
+diff -Naur ./cppcheck-1.72/test/security/25.c ./cppcheck-1.72_org/test/security/25.c
+--- ./cppcheck-1.72/test/security/25.c	2016-03-10 15:14:43.551810863 +0900
++++ ./cppcheck-1.72_org/test/security/25.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,9 +0,0 @@
+-//
+-void f()
+-{
+-    chown ( "/usr/bin/elfbin", getuid(), getgid() );
+-}
+-void main()
+-{
+-	f();
+-}
+diff -Naur ./cppcheck-1.72/test/security/26.c ./cppcheck-1.72_org/test/security/26.c
+--- ./cppcheck-1.72/test/security/26.c	2016-03-10 15:21:03.627810667 +0900
++++ ./cppcheck-1.72_org/test/security/26.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,10 +0,0 @@
+-//[TCFILE:5]: (error) fopen : you should check symbolic link using realpath.\n
+-#include <stdio.h>
+-void f()
+-{
+-    FILE *pFile = fopen("test.txt", "rw");
+-}
+-void main()
+-{
+-	f();
+-}
+diff -Naur ./cppcheck-1.72/test/security/27.c ./cppcheck-1.72_org/test/security/27.c
+--- ./cppcheck-1.72/test/security/27.c	2016-03-10 15:14:33.351810868 +0900
++++ ./cppcheck-1.72_org/test/security/27.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,11 +0,0 @@
+-//
+-#include <stdio.h>
+-void f()
+-{
+-    realpath("test.txt");
+-    FILE *pFile = fopen("test.txt", "rw");
+-}
+-void main()
+-{
+-	f();
+-}
+diff -Naur ./cppcheck-1.72/test/security/28.c ./cppcheck-1.72_org/test/security/28.c
+--- ./cppcheck-1.72/test/security/28.c	2016-03-10 15:21:06.279810666 +0900
++++ ./cppcheck-1.72_org/test/security/28.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,16 +0,0 @@
+-//[TCFILE:10]: (error) fopen : you should check symbolic link using realpath.\n
+-#include <stdio.h>
+-void f()
+-{
+-	char* pPath = "/usr/bin/storage/abc.txt";
+-	char pRealPath[256];
+-	//realpath(pPath, pRealPath);
+-	if(strcmp(pPath, pRealPath) == 0)
+-	{
+-		FILE *pFile = fopen(pPath, "rw");
+-	}
+-}
+-void main()
+-{
+-	f();
+-}
+diff -Naur ./cppcheck-1.72/test/security/29.c ./cppcheck-1.72_org/test/security/29.c
+--- ./cppcheck-1.72/test/security/29.c	2016-03-10 15:21:09.499810664 +0900
++++ ./cppcheck-1.72_org/test/security/29.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,10 +0,0 @@
+-//[TCFILE:5]: (error) chroot : you should not call.\n
+-#include <stdio.h>
+-void f()
+-{
+-    chroot("/usr/bin");
+-}
+-void main()
+-{
+-	f();
+-}
+diff -Naur ./cppcheck-1.72/test/security/2.c ./cppcheck-1.72_org/test/security/2.c
+--- ./cppcheck-1.72/test/security/2.c	2016-03-10 15:14:59.071810855 +0900
++++ ./cppcheck-1.72_org/test/security/2.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,12 +0,0 @@
+-//[TCFILE:7]: (error) non abs command injection"sh"\n
+-// non-abs path
+-#include <stdio.h>
+-#include <unistd.h>
+-void f()
+-{
+-	execl("sh", "/sh", NULL);
+-}
+-void main()
+-{
+-	f();
+-}
+diff -Naur ./cppcheck-1.72/test/security/30.c ./cppcheck-1.72_org/test/security/30.c
+--- ./cppcheck-1.72/test/security/30.c	2016-03-10 15:21:13.203810662 +0900
++++ ./cppcheck-1.72_org/test/security/30.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,10 +0,0 @@
+-//[TCFILE:5]: (error) sethostid : you should not call.\n
+-#include <unistd.h>
+-void f()
+-{
+-    sethostid(0x87AB2L);
+-}
+-void main()
+-{
+-	f();
+-}
+diff -Naur ./cppcheck-1.72/test/security/31.c ./cppcheck-1.72_org/test/security/31.c
+--- ./cppcheck-1.72/test/security/31.c	2016-03-10 15:21:16.971810660 +0900
++++ ./cppcheck-1.72_org/test/security/31.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,11 +0,0 @@
+-//[TCFILE:6]: (error) seteuid : you should not call.\n
+-#include <sys/types.h>
+-#include <unistd.h>
+-void f()
+-{
+-    seteuid(0);
+-}
+-void main()
+-{
+-	f();
+-}
+diff -Naur ./cppcheck-1.72/test/security/32.c ./cppcheck-1.72_org/test/security/32.c
+--- ./cppcheck-1.72/test/security/32.c	2016-03-10 15:21:19.939810659 +0900
++++ ./cppcheck-1.72_org/test/security/32.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,11 +0,0 @@
+-//[TCFILE:6]: (error) setegid : you should not call.\n
+-#include <sys/types.h>
+-#include <unistd.h>
+-void f()
+-{
+-	setegid(0);
+-}
+-void main()
+-{
+-	f();
+-}
+diff -Naur ./cppcheck-1.72/test/security/33.c ./cppcheck-1.72_org/test/security/33.c
+--- ./cppcheck-1.72/test/security/33.c	2016-03-10 15:14:11.859810879 +0900
++++ ./cppcheck-1.72_org/test/security/33.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,22 +0,0 @@
+-//
+-// Random with srand
+-#include <stdio.h>
+-#include <stdlib.h>
+-#include <string.h>
+-#include <openssl/sha.h>
+-#include <openssl/aes.h>
+-char* getRandomString()
+-{
+-	int length = 17;
+-	char *string = malloc(length);
+-	unsigned int i;
+-	srand(time(NULL));
+-	for (i = 0; i < length - 1 ; i++)
+-		string[i] = rand() % (126 - 33 + 1) + 33;
+-	string[length - 1] = 0;
+-	return string;
+-}
+-void main()
+-{
+-	getRandomString();
+-}
+diff -Naur ./cppcheck-1.72/test/security/34.c ./cppcheck-1.72_org/test/security/34.c
+--- ./cppcheck-1.72/test/security/34.c	2016-03-10 15:14:06.811810882 +0900
++++ ./cppcheck-1.72_org/test/security/34.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,21 +0,0 @@
+-//[TCFILE:14]: (error) rand : you should call srand before.\n
+-// Random with out srand
+-#include <stdio.h>
+-#include <stdlib.h>
+-#include <string.h>
+-#include <openssl/sha.h>
+-#include <openssl/aes.h>
+-char* getRandomString()
+-{
+-	int length = 17;
+-	char *string = malloc(length);
+-	unsigned int i;
+-	for (i = 0; i < length - 1 ; i++)
+-		string[i] = rand() % (126 - 33 + 1) + 33;
+-	string[length - 1] = 0;
+-	return string;
+-}
+-void main()
+-{
+-	getRandomString();
+-}
+diff -Naur ./cppcheck-1.72/test/security/35.c ./cppcheck-1.72_org/test/security/35.c
+--- ./cppcheck-1.72/test/security/35.c	2016-03-10 13:57:33.919813248 +0900
++++ ./cppcheck-1.72_org/test/security/35.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,35 +0,0 @@
+-//
+-// SALT + PASSWD SHA256 or 384 or 512 hash
+-#include <stdio.h>
+-#include <stdlib.h>
+-#include <string.h>
+-#include <openssl/sha.h>
+-#include <openssl/aes.h>
+-char* getRandomString()
+-{
+-	int length = 17;
+-	char *string = malloc(length);
+-	srand(time(NULL));
+-	unsigned int i;
+-	for (i = 0; i < length - 1 ; i++)
+-		string[i] = rand() % (126 - 33 + 1) + 33;
+-	string[length - 1] = 0;
+-	return string;
+-}
+-void main()
+-{
+-	char passAndSalt[33] = "my16bytepasswd@!";
+-	char *pSalt = getRandomString();
+-	printf("salt=%s\n", pSalt);
+-	strncat(passAndSalt, pSalt, sizeof(passAndSalt) - 1 - strlen(passAndSalt));
+-	unsigned char hash[SHA256_DIGEST_LENGTH];
+-	SHA256_CTX sha256;
+-	SHA256_Init(&sha256);
+-	SHA256_Update(&sha256, passAndSalt, strlen(passAndSalt));
+-	SHA256_Final(hash, &sha256);
+-	int i = 0;
+-	for(i = 0; i <= SHA256_DIGEST_LENGTH-1; i++)
+-		printf("%02x", hash[i]);
+-	if(pSalt)
+-		free(pSalt);
+-}
+diff -Naur ./cppcheck-1.72/test/security/36.c ./cppcheck-1.72_org/test/security/36.c
+--- ./cppcheck-1.72/test/security/36.c	2016-03-10 13:57:39.519813245 +0900
++++ ./cppcheck-1.72_org/test/security/36.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,35 +0,0 @@
+-//[TCFILE:27]: (error) SHA224_Init : you should use more strong hash function.\n
+-// SALT + PASSWD SHA224 hash          weak
+-#include <stdio.h>
+-#include <stdlib.h>
+-#include <string.h>
+-#include <openssl/sha.h>
+-#include <openssl/aes.h>
+-char* getRandomString()
+-{
+-	int length = 17;
+-	char *string = malloc(length);
+-	srand(time(NULL));
+-	unsigned int i;
+-	for (i = 0; i < length - 1 ; i++)
+-		string[i] = rand() % (126 - 33 + 1) + 33;
+-	string[length - 1] = 0;
+-	return string;
+-}
+-void main()
+-{
+-	char passAndSalt[33] = "my16bytepasswd@!";
+-	char *pSalt = getRandomString();
+-	printf("salt=%s\n", pSalt);
+-	strncat(passAndSalt, pSalt, sizeof(passAndSalt) - 1 - strlen(passAndSalt));
+-	unsigned char hash[SHA224_DIGEST_LENGTH];
+-	SHA256_CTX SHA224;
+-	SHA224_Init(&SHA224);
+-	SHA224_Update(&SHA224, passAndSalt, strlen(passAndSalt));
+-	SHA224_Final(hash, &SHA224);
+-	int i = 0;
+-	for(i = 0; i <= SHA224_DIGEST_LENGTH-1; i++)
+-		printf("%02x", hash[i]);
+-	if(pSalt)
+-		free(pSalt);
+-}
+diff -Naur ./cppcheck-1.72/test/security/37.c ./cppcheck-1.72_org/test/security/37.c
+--- ./cppcheck-1.72/test/security/37.c	2016-03-10 13:57:46.419813241 +0900
++++ ./cppcheck-1.72_org/test/security/37.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,35 +0,0 @@
+-//[TCFILE:27]: (error) SHA1_Init : you should use more strong hash function.\n
+-// SALT + PASSWD SHA1 hash          weak
+-#include <stdio.h>
+-#include <stdlib.h>
+-#include <string.h>
+-#include <openssl/sha.h>
+-#include <openssl/aes.h>
+-char* getRandomString()
+-{
+-	int length = 17;
+-	char *string = malloc(length);
+-	srand(time(NULL));
+-	unsigned int i;
+-	for (i = 0; i < length - 1 ; i++)
+-		string[i] = rand() % (126 - 33 + 1) + 33;
+-	string[length - 1] = 0;
+-	return string;
+-}
+-void main()
+-{
+-	char passAndSalt[33] = "my16bytepasswd@!";
+-	char *pSalt = getRandomString();
+-	printf("salt=%s\n", pSalt);
+-	strncat(passAndSalt, pSalt, sizeof(passAndSalt) - 1 - strlen(passAndSalt));
+-	unsigned char hash[SHA_DIGEST_LENGTH];
+-	SHA256_CTX SHA1;
+-	SHA1_Init(&SHA1);
+-	SHA1_Update(&SHA1, passAndSalt, strlen(passAndSalt));
+-	SHA1_Final(hash, &SHA1);
+-	int i = 0;
+-	for(i = 0; i <= SHA_DIGEST_LENGTH-1; i++)
+-		printf("%02x", hash[i]);
+-	if(pSalt)
+-		free(pSalt);
+-}
+diff -Naur ./cppcheck-1.72/test/security/38.c ./cppcheck-1.72_org/test/security/38.c
+--- ./cppcheck-1.72/test/security/38.c	2016-03-10 13:57:52.523813238 +0900
++++ ./cppcheck-1.72_org/test/security/38.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,36 +0,0 @@
+-//[TCFILE:28]: (error) MD5_Init : you should use more strong hash function.\n
+-// SALT + PASSWD MD5 hash          weak
+-#include <stdio.h>
+-#include <stdlib.h>
+-#include <string.h>
+-#include <openssl/sha.h>
+-#include <openssl/aes.h>
+-#include <openssl/md5.h>
+-char* getRandomString()
+-{
+-	int length = 17;
+-	char *string = malloc(length);
+-	srand(time(NULL));
+-	unsigned int i;
+-	for (i = 0; i < length - 1 ; i++)
+-		string[i] = rand() % (126 - 33 + 1) + 33;
+-	string[length - 1] = 0;
+-	return string;
+-}
+-void main()
+-{
+-	char passAndSalt[33] = "my16bytepasswd@!";
+-	char *pSalt = getRandomString();
+-	printf("salt=%s\n", pSalt);
+-	strncat(passAndSalt, pSalt, sizeof(passAndSalt) - 1 - strlen(passAndSalt));
+-	unsigned char hash[MD5_DIGEST_LENGTH];
+-	MD5_CTX MD5;
+-	MD5_Init(&MD5);
+-	MD5_Update(&MD5, passAndSalt, strlen(passAndSalt));
+-	MD5_Final(hash, &MD5);
+-	int i = 0;
+-	for(i = 0; i <= MD5_DIGEST_LENGTH-1; i++)
+-		printf("%02x", hash[i]);
+-	if(pSalt)
+-		free(pSalt);
+-}
+diff -Naur ./cppcheck-1.72/test/security/39.c ./cppcheck-1.72_org/test/security/39.c
+--- ./cppcheck-1.72/test/security/39.c	2016-03-10 13:57:59.023813235 +0900
++++ ./cppcheck-1.72_org/test/security/39.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,23 +0,0 @@
+-//[TCFILE:10]: (error) key32 : you have hardcoded an important information. use secure storage instead.\n
+-// AES ENCRYPT  symmetric key encryption    AES CBC 256
+-#include <stdio.h>
+-#include <stdlib.h>
+-#include <string.h>
+-#include <openssl/sha.h>
+-#include <openssl/aes.h>
+-void main()
+-{
+-	static const unsigned char key32[32]= {0x12,0x34,0x56,0x78,0x9a,0xbc,0xde,0xf0,0x34,0x56,0x78,0x9a,0xbc,0xde,0xf0,0x12,0x56,0x78,0x9a,0xbc,0xde,0xf0,0x12,0x34,0x78,0x9a,0xbc,0xde,0xf0,0x12,0x34,0x56};
+-	AES_KEY aes_ks3;
+-	#define IV_SIZE 16
+-	unsigned char iv[IV_SIZE];
+-	#define BUFF_SIZE 1024
+-	unsigned char buf[BUFF_SIZE] = "plz encrypt this message";
+-	unsigned char cipher[BUFF_SIZE];
+-	memset(iv,0,sizeof(iv)); // init iv
+-	AES_set_encrypt_key(key32 ,256 ,&aes_ks3);
+-	AES_cbc_encrypt(buf ,cipher ,BUFF_SIZE ,&aes_ks3 ,iv ,AES_ENCRYPT);
+-	int i = 0;
+-	for(i = 0; i <= BUFF_SIZE-1; i++)
+-		printf("%02x", cipher[i]);
+-}
+diff -Naur ./cppcheck-1.72/test/security/3.c ./cppcheck-1.72_org/test/security/3.c
+--- ./cppcheck-1.72/test/security/3.c	2016-03-10 13:22:15.239814339 +0900
++++ ./cppcheck-1.72_org/test/security/3.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,13 +0,0 @@
+-//[TCFILE:8]: (error) non abs command injection"sh"\n
+-// arrary non-abs path
+-#include <stdio.h>
+-#include <unistd.h>
+-void f()
+-{
+-	char inVal[64] = "sh";
+-	execl(inVal, inVal, NULL);
+-}
+-void main()
+-{
+-	f();
+-}
+diff -Naur ./cppcheck-1.72/test/security/40.c ./cppcheck-1.72_org/test/security/40.c
+--- ./cppcheck-1.72/test/security/40.c	2016-03-10 13:58:22.915813223 +0900
++++ ./cppcheck-1.72_org/test/security/40.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,23 +0,0 @@
+-//[TCFILE:18]: (error) AES_set_encrypt_key : you should use more long encryption key.\n[TCFILE:10]: (error) key32 : you have hardcoded an important information. use secure storage instead.\n
+-// AES ENCRYPT  symmetric key encryption          128 bit weak
+-#include <stdio.h>
+-#include <stdlib.h>
+-#include <string.h>
+-#include <openssl/sha.h>
+-#include <openssl/aes.h>
+-void main()
+-{
+-	static const unsigned char key32[32]= {0x12,0x34,0x56,0x78,0x9a,0xbc,0xde,0xf0,0x34,0x56,0x78,0x9a,0xbc,0xde,0xf0,0x12,0x56,0x78,0x9a,0xbc,0xde,0xf0,0x12,0x34,0x78,0x9a,0xbc,0xde,0xf0,0x12,0x34,0x56};
+-	AES_KEY aes_ks3;
+-	#define IV_SIZE 16
+-	unsigned char iv[IV_SIZE];
+-	#define BUFF_SIZE 1024
+-	unsigned char buf[BUFF_SIZE] = "plz encrypt this message";
+-	unsigned char cipher[BUFF_SIZE];
+-	memset(iv,0,sizeof(iv)); // init iv
+-	AES_set_encrypt_key(key32 ,128 ,&aes_ks3);
+-	AES_cbc_encrypt(buf ,cipher ,BUFF_SIZE ,&aes_ks3 ,iv ,AES_ENCRYPT);
+-	int i = 0;
+-	for(i = 0; i <= BUFF_SIZE-1; i++)
+-		printf("%02x", cipher[i]);
+-}
+diff -Naur ./cppcheck-1.72/test/security/41.c ./cppcheck-1.72_org/test/security/41.c
+--- ./cppcheck-1.72/test/security/41.c	2016-03-10 14:00:42.399813151 +0900
++++ ./cppcheck-1.72_org/test/security/41.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,24 +0,0 @@
+-//[TCFILE:19]: (error) AES_set_encrypt_key : you should use more long encryption key.\n[TCFILE:10]: (error) key32 : you have hardcoded an important information. use secure storage instead.\n
+-// AES ENCRYPT  symmetric key encryption          128 bit weak with var
+-#include <stdio.h>
+-#include <stdlib.h>
+-#include <string.h>
+-#include <openssl/sha.h>
+-#include <openssl/aes.h>
+-void main()
+-{
+-	static const unsigned char key32[32]= {0x12,0x34,0x56,0x78,0x9a,0xbc,0xde,0xf0,0x34,0x56,0x78,0x9a,0xbc,0xde,0xf0,0x12,0x56,0x78,0x9a,0xbc,0xde,0xf0,0x12,0x34,0x78,0x9a,0xbc,0xde,0xf0,0x12,0x34,0x56};
+-	AES_KEY aes_ks3;
+-	#define IV_SIZE 16
+-	unsigned char iv[IV_SIZE];
+-	#define BUFF_SIZE 1024
+-	unsigned char buf[BUFF_SIZE] = "plz encrypt this message";
+-	unsigned char cipher[BUFF_SIZE];
+-	memset(iv,0,sizeof(iv)); // init iv
+-	int key_len=86;
+-	AES_set_encrypt_key(key32 ,key_len ,&aes_ks3);
+-	AES_cbc_encrypt(buf ,cipher ,BUFF_SIZE ,&aes_ks3 ,iv ,AES_ENCRYPT);
+-	int i = 0;
+-	for(i = 0; i <= BUFF_SIZE-1; i++)
+-		printf("%02x", cipher[i]);
+-}
+diff -Naur ./cppcheck-1.72/test/security/42.c ./cppcheck-1.72_org/test/security/42.c
+--- ./cppcheck-1.72/test/security/42.c	2016-03-10 14:00:41.535813151 +0900
++++ ./cppcheck-1.72_org/test/security/42.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,23 +0,0 @@
+-//[TCFILE:19]: (error) AES_ecb_encrypt : you should use more strong encryption.\n[TCFILE:10]: (error) key32 : you have hardcoded an important information. use secure storage instead.\n
+-// AES ENCRYPT  symmetric key encryption              electric code book           weak
+-#include <stdio.h>
+-#include <stdlib.h>
+-#include <string.h>
+-#include <openssl/sha.h>
+-#include <openssl/aes.h>
+-void main()
+-{
+-	static const unsigned char key32[32]= {0x12,0x34,0x56,0x78,0x9a,0xbc,0xde,0xf0,0x34,0x56,0x78,0x9a,0xbc,0xde,0xf0,0x12,0x56,0x78,0x9a,0xbc,0xde,0xf0,0x12,0x34,0x78,0x9a,0xbc,0xde,0xf0,0x12,0x34,0x56};
+-	AES_KEY aes_ks3;
+-	#define IV_SIZE 16
+-	unsigned char iv[IV_SIZE];
+-	#define BUFF_SIZE 1024
+-	unsigned char buf[BUFF_SIZE] = "plz encrypt this message";
+-	unsigned char cipher[BUFF_SIZE];
+-	memset(iv,0,sizeof(iv)); // init iv
+-	AES_set_encrypt_key(key32 ,256 ,&aes_ks3);
+-	AES_ecb_encrypt(buf, cipher, &aes_ks3, AES_ENCRYPT);
+-	int i = 0;
+-	for(i = 0; i <= BUFF_SIZE-1; i++)
+-	printf("%02x", cipher[i]);
+-}
+diff -Naur ./cppcheck-1.72/test/security/43.c ./cppcheck-1.72_org/test/security/43.c
+--- ./cppcheck-1.72/test/security/43.c	2016-03-10 15:22:32.827810621 +0900
++++ ./cppcheck-1.72_org/test/security/43.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,21 +0,0 @@
+-//[TCFILE:14]: (error) key32 : you have hardcoded an important information. use secure storage instead.\n
+-// saving Informational ID
+-#include <stdio.h>
+-#include <stdlib.h>
+-#include <limits.h>
+-#include <string.h>
+-
+-void main()
+-{
+-	// check Arrary's definition
+-	// check var name contains : *key* except pub, *id*, *ip*, *serial*, *sn*, *duid*, *card*, *pass*
+-	// AND!! var content : starts with 0x, MII AKA number
+-
+-	static const unsigned char key32[32] =
+-		{0x12,0x34,0x56,0x78,0x9a,0xbc,0xde,0xf0,0x34,0x56,0x78,0x9a,0xbc,0xde,0xf0,0x12,
+-		 0x56,0x78,0x9a,0xbc,0xde,0xf0,0x12,0x34,0x78,0x9a,0xbc,0xde,0xf0,0x12,0x34,0x56};
+-
+-	char *pBuf = malloc (32);
+-	memcpy(pBuf, key32, 32);
+-}
+-
+diff -Naur ./cppcheck-1.72/test/security/44.c ./cppcheck-1.72_org/test/security/44.c
+--- ./cppcheck-1.72/test/security/44.c	2016-03-10 15:03:52.699811198 +0900
++++ ./cppcheck-1.72_org/test/security/44.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,21 +0,0 @@
+-//
+-// saving Informational ID
+-#include <stdio.h>
+-#include <stdlib.h>
+-#include <limits.h>
+-#include <string.h>
+-
+-void main()
+-{
+-	// check Arrary's definition
+-	// check var name contains : *key* except pub, *id*, *ip*, *serial*, *sn*, *duid*, *card*, *pass*
+-	// AND!! var content : starts with 0x, MII AKA number
+-
+-	static const unsigned char pub_key32[32] =
+-		{0x12,0x34,0x56,0x78,0x9a,0xbc,0xde,0xf0,0x34,0x56,0x78,0x9a,0xbc,0xde,0xf0,0x12,
+-		 0x56,0x78,0x9a,0xbc,0xde,0xf0,0x12,0x34,0x78,0x9a,0xbc,0xde,0xf0,0x12,0x34,0x56};
+-
+-	char *pBuf = malloc (32);
+-	memcpy(pBuf, pub_key32, 32);
+-}
+-
+diff -Naur ./cppcheck-1.72/test/security/45.c ./cppcheck-1.72_org/test/security/45.c
+--- ./cppcheck-1.72/test/security/45.c	2016-03-10 15:22:35.839810620 +0900
++++ ./cppcheck-1.72_org/test/security/45.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,21 +0,0 @@
+-//[TCFILE:14]: (error) my_id : you have hardcoded an important information. use secure storage instead.\n
+-// saving Informational ID
+-#include <stdio.h>
+-#include <stdlib.h>
+-#include <limits.h>
+-#include <string.h>
+-
+-void main()
+-{
+-	// check Arrary's definition
+-	// check var name contains : *key* except pub, *id*, *ip*, *serial*, *sn*, *duid*, *card*, *pass*
+-	// AND!! var content : starts with 0x, MII AKA number
+-
+-	static const unsigned char my_id[32] =
+-		{0x12,0x34,0x56,0x78,0x9a,0xbc,0xde,0xf0,0x34,0x56,0x78,0x9a,0xbc,0xde,0xf0,0x12,
+-		 0x56,0x78,0x9a,0xbc,0xde,0xf0,0x12,0x34,0x78,0x9a,0xbc,0xde,0xf0,0x12,0x34,0x56};
+-
+-	char *pBuf = malloc (32);
+-	memcpy(pBuf, my_id, 32);
+-}
+-
+diff -Naur ./cppcheck-1.72/test/security/46.c ./cppcheck-1.72_org/test/security/46.c
+--- ./cppcheck-1.72/test/security/46.c	2016-03-10 15:22:41.223810617 +0900
++++ ./cppcheck-1.72_org/test/security/46.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,21 +0,0 @@
+-//[TCFILE:14]: (error) my_duid : you have hardcoded an important information. use secure storage instead.\n
+-// saving Informational ID
+-#include <stdio.h>
+-#include <stdlib.h>
+-#include <limits.h>
+-#include <string.h>
+-
+-void main()
+-{
+-	// check Arrary's definition
+-	// check var name contains : *key* except pub, *id*, *ip*, *serial*, *sn*, *duid*, *card*, *pass*
+-	// AND!! var content : starts with 0x, MII AKA number
+-
+-	static const unsigned char my_duid[32] =
+-		{0x12,0x34,0x56,0x78,0x9a,0xbc,0xde,0xf0,0x34,0x56,0x78,0x9a,0xbc,0xde,0xf0,0x12,
+-		 0x56,0x78,0x9a,0xbc,0xde,0xf0,0x12,0x34,0x78,0x9a,0xbc,0xde,0xf0,0x12,0x34,0x56};
+-
+-	char *pBuf = malloc (32);
+-	memcpy(pBuf, my_duid, 32);
+-}
+-
+diff -Naur ./cppcheck-1.72/test/security/47.c ./cppcheck-1.72_org/test/security/47.c
+--- ./cppcheck-1.72/test/security/47.c	2016-03-10 15:22:38.563810618 +0900
++++ ./cppcheck-1.72_org/test/security/47.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,21 +0,0 @@
+-//[TCFILE:14]: (error) card_num : you have hardcoded an important information. use secure storage instead.\n
+-// saving Informational ID
+-#include <stdio.h>
+-#include <stdlib.h>
+-#include <limits.h>
+-#include <string.h>
+-
+-void main()
+-{
+-	// check Arrary's definition
+-	// check var name contains : *key* except pub, *id*, *ip*, *serial*, *sn*, *duid*, *card*, *pass*
+-	// AND!! var content : starts with 0x, MII AKA number
+-
+-	static const unsigned char card_num[32] =
+-		{0x12,0x34,0x56,0x78,0x9a,0xbc,0xde,0xf0,0x34,0x56,0x78,0x9a,0xbc,0xde,0xf0,0x12,
+-		 0x56,0x78,0x9a,0xbc,0xde,0xf0,0x12,0x34,0x78,0x9a,0xbc,0xde,0xf0,0x12,0x34,0x56};
+-
+-	char *pBuf = malloc (32);
+-	memcpy(pBuf, card_num, 32);
+-}
+-
+diff -Naur ./cppcheck-1.72/test/security/48.c ./cppcheck-1.72_org/test/security/48.c
+--- ./cppcheck-1.72/test/security/48.c	2016-03-10 15:22:43.971810615 +0900
++++ ./cppcheck-1.72_org/test/security/48.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,21 +0,0 @@
+-//[TCFILE:14]: (error) passwd : you have hardcoded an important information. use secure storage instead.\n
+-// saving Informational ID
+-#include <stdio.h>
+-#include <stdlib.h>
+-#include <limits.h>
+-#include <string.h>
+-
+-void main()
+-{
+-	// check Arrary's definition
+-	// check var name contains : *key* except pub, *id*, *ip*, *serial*, *sn*, *duid*, *card*, *pass*
+-	// AND!! var content : starts with 0x, MII AKA number
+-
+-	static const unsigned char passwd[32] =
+-		{0x12,0x34,0x56,0x78,0x9a,0xbc,0xde,0xf0,0x34,0x56,0x78,0x9a,0xbc,0xde,0xf0,0x12,
+-		 0x56,0x78,0x9a,0xbc,0xde,0xf0,0x12,0x34,0x78,0x9a,0xbc,0xde,0xf0,0x12,0x34,0x56};
+-
+-	char *pBuf = malloc (32);
+-	memcpy(pBuf, passwd, 32);
+-}
+-
+diff -Naur ./cppcheck-1.72/test/security/49.c ./cppcheck-1.72_org/test/security/49.c
+--- ./cppcheck-1.72/test/security/49.c	2016-03-10 15:22:46.999810614 +0900
++++ ./cppcheck-1.72_org/test/security/49.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,21 +0,0 @@
+-//[TCFILE:14]: (error) serial_number : you have hardcoded an important information. use secure storage instead.\n
+-// saving Informational ID
+-#include <stdio.h>
+-#include <stdlib.h>
+-#include <limits.h>
+-#include <string.h>
+-
+-void main()
+-{
+-	// check Arrary's definition
+-	// check var name contains : *key* except pub, *id*, *ip*, *serial*, *sn*, *duid*, *card*, *pass*
+-	// AND!! var content : starts with 0x, MII AKA number
+-
+-	static const unsigned char serial_number[32] =
+-		{0x12,0x34,0x56,0x78,0x9a,0xbc,0xde,0xf0,0x34,0x56,0x78,0x9a,0xbc,0xde,0xf0,0x12,
+-		 0x56,0x78,0x9a,0xbc,0xde,0xf0,0x12,0x34,0x78,0x9a,0xbc,0xde,0xf0,0x12,0x34,0x56};
+-
+-	char *pBuf = malloc (32);
+-	memcpy(pBuf, serial_number, 32);
+-}
+-
+diff -Naur ./cppcheck-1.72/test/security/4.c ./cppcheck-1.72_org/test/security/4.c
+--- ./cppcheck-1.72/test/security/4.c	2016-03-10 15:13:55.431810888 +0900
++++ ./cppcheck-1.72_org/test/security/4.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,13 +0,0 @@
+-//[TCFILE:8]: (error) non abs command injection"sh"\n
+-// ptr non-abs path
+-#include <stdio.h>
+-#include <unistd.h>
+-void f()
+-{
+-	char* inVal = "sh";
+-	execl(inVal, inVal, NULL);
+-}
+-void main()
+-{
+-	f();
+-}
+diff -Naur ./cppcheck-1.72/test/security/50.c ./cppcheck-1.72_org/test/security/50.c
+--- ./cppcheck-1.72/test/security/50.c	2016-03-10 15:22:50.199810612 +0900
++++ ./cppcheck-1.72_org/test/security/50.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,24 +0,0 @@
+-//[TCFILE:21]: (error) fwrite : you should not save important value without encrypt it.\n
+-// saving important data
+-#include <stdio.h>
+-#include <stdlib.h>
+-#include <limits.h>
+-#include <string.h>
+-
+-void main()
+-{
+-	char *key32 = malloc(32);
+-
+-	char* pRes = malloc(PATH_MAX);
+-
+-	realpath("/etc/payload", pRes);
+-	if(!strcmp("/etc/payload", pRes))
+-	{
+-		// personal identifiable information
+-		FILE *fp = fopen("/etc/payload", "rw");
+-
+-		// saving important data
+-		fwrite(key32, 32, 1, fp);
+-		fclose(fp);
+-	}
+-}
+diff -Naur ./cppcheck-1.72/test/security/51.c ./cppcheck-1.72_org/test/security/51.c
+--- ./cppcheck-1.72/test/security/51.c	2016-03-10 15:23:07.671810603 +0900
++++ ./cppcheck-1.72_org/test/security/51.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,24 +0,0 @@
+-//[TCFILE:21]: (error) fwrite : you should not save important value without encrypt it.\n
+-// saving important data with encrypted format
+-#include <stdio.h>
+-#include <stdlib.h>
+-#include <limits.h>
+-#include <string.h>
+-
+-void main()
+-{
+-	char *key32 = malloc(32);
+-
+-	char* pRes = malloc(PATH_MAX);
+-
+-	realpath("/etc/payload", pRes);
+-	if(!strcmp("/etc/payload", pRes))
+-	{
+-		// personal identifiable information
+-		FILE *fp = fopen("/etc/payload", "rw");
+-
+-		// saving important data
+-		fwrite(key32, 32, 1, fp);
+-		fclose(fp);
+-	}
+-}
+diff -Naur ./cppcheck-1.72/test/security/52.c ./cppcheck-1.72_org/test/security/52.c
+--- ./cppcheck-1.72/test/security/52.c	2016-03-10 15:23:16.103810599 +0900
++++ ./cppcheck-1.72_org/test/security/52.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,47 +0,0 @@
+-//[TCFILE:39]: (error) send : you should not save important value without encrypt it.\n
+-// sending Informational ID
+-#include<stdio.h> //printf
+-#include<string.h>    //strlen
+-#include<sys/socket.h>    //socket
+-#include<arpa/inet.h> //inet_addr
+-#include <stdlib.h>
+-
+-int main(int argc , char *argv[])
+-{
+-    int sock;
+-    struct sockaddr_in server;
+-    char message[1000] , server_reply[2000];
+-
+-    char *key32 = malloc(32);
+-
+-    //Create socket
+-    sock = socket(AF_INET , SOCK_STREAM , 0);
+-    if (sock == -1)
+-    {
+-        printf("Could not create socket");
+-    }
+-    puts("Socket created");
+-
+-    server.sin_addr.s_addr = inet_addr("127.0.0.1");
+-    server.sin_family = AF_INET;
+-    server.sin_port = htons( 8888 );
+-
+-    //Connect to remote server
+-    if (connect(sock , (struct sockaddr *)&server , sizeof(server)) < 0)
+-    {
+-        perror("connect failed. Error");
+-        return 1;
+-    }
+-
+-    puts("Connected\n");
+-
+-	//Send important data
+-	if( send(sock , key32 , 32 , 0) < 0)
+-	{
+-		puts("Send failed");
+-		return 1;
+-	}
+-
+-    close(sock);
+-    return 0;
+-}
+diff -Naur ./cppcheck-1.72/test/security/53.c ./cppcheck-1.72_org/test/security/53.c
+--- ./cppcheck-1.72/test/security/53.c	2016-03-10 15:23:28.507810592 +0900
++++ ./cppcheck-1.72_org/test/security/53.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,47 +0,0 @@
+-//[TCFILE:39]: (error) send : you should not save important value without encrypt it.\n
+-// sending Informational ID with encrypted format
+-#include<stdio.h> //printf
+-#include<string.h>    //strlen
+-#include<sys/socket.h>    //socket
+-#include<arpa/inet.h> //inet_addr
+-#include <stdlib.h>
+-
+-int main(int argc , char *argv[])
+-{
+-    int sock;
+-    struct sockaddr_in server;
+-    char message[1000] , server_reply[2000];
+-
+-    char *key32 = malloc(32);
+-
+-    //Create socket
+-    sock = socket(AF_INET , SOCK_STREAM , 0);
+-    if (sock == -1)
+-    {
+-        printf("Could not create socket");
+-    }
+-    puts("Socket created");
+-
+-    server.sin_addr.s_addr = inet_addr("127.0.0.1");
+-    server.sin_family = AF_INET;
+-    server.sin_port = htons( 8888 );
+-
+-    //Connect to remote server
+-    if (connect(sock , (struct sockaddr *)&server , sizeof(server)) < 0)
+-    {
+-        perror("connect failed. Error");
+-        return 1;
+-    }
+-
+-    puts("Connected\n");
+-
+-	//Send important data
+-	if( send(sock , key32 , 32 , 0) < 0)
+-	{
+-		puts("Send failed");
+-		return 1;
+-	}
+-
+-    close(sock);
+-    return 0;
+-}
+diff -Naur ./cppcheck-1.72/test/security/54.c ./cppcheck-1.72_org/test/security/54.c
+--- ./cppcheck-1.72/test/security/54.c	2016-03-10 15:02:18.747811247 +0900
++++ ./cppcheck-1.72_org/test/security/54.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,12 +0,0 @@
+-//[TCFILE:8]: (error) getenv : env value can be hooked by a hacker.\n
+-// use of getenv()
+-#include <stdlib.h>
+-#include <stdio.h>
+-void main()
+-{
+-	char* pBuf = NULL;
+-	pBuf = getenv("PATH");
+-	printf("%s", pBuf);
+-
+-	return;
+-}
+diff -Naur ./cppcheck-1.72/test/security/55.c ./cppcheck-1.72_org/test/security/55.c
+--- ./cppcheck-1.72/test/security/55.c	2016-03-10 14:05:04.163813016 +0900
++++ ./cppcheck-1.72_org/test/security/55.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,31 +0,0 @@
+-//[TCFILE:25]: (error) fwrite : you should not save important value without encrypt it.\n
+-// ELIMINATE DEBUG DEFINE.
+-// for example undef *DEBUG*
+-#include <stdio.h>
+-
+-void main()
+-{
+-
+-	printf("this is a normal code");
+-
+-	#ifdef DEBUG
+-	printf("pre-processor must filter out this commands");
+-
+-	char *key32 = malloc(32);
+-
+-	char* pRes = malloc(PATH_MAX);
+-
+-	realpath("/etc/payload", pRes);
+-	if(!strcmp("/etc/payload", pRes))
+-	{
+-		// personal identifiable information
+-		FILE *fp = fopen("/etc/debug_log", "rw");
+-
+-		// saving important data
+-		fwrite(key32, 32, 1, fp);
+-		fclose(fp);
+-	}
+-
+-	#endif // DEBUG
+-	return;
+-}
+diff -Naur ./cppcheck-1.72/test/security/56.cpp ./cppcheck-1.72_org/test/security/56.cpp
+--- ./cppcheck-1.72/test/security/56.cpp	2016-03-10 15:36:47.091810181 +0900
++++ ./cppcheck-1.72_org/test/security/56.cpp	1970-01-01 09:00:00.000000000 +0900
+@@ -1,26 +0,0 @@
+-//[TCFILE:13]: (error) return : (broken capsulation) you should not return private array member.\n
+-// get priv ptr using public method
+-#include <stdio.h>
+-
+-class epgData
+-{
+-private:
+-	char innerArray[64];
+-public:
+-	char* getVal()
+-	{
+-		// see if public method returns a private arrary
+-		return innerArray;
+-	}
+-};
+-
+-int main()
+-{
+-	epgData myClass;
+-
+-	char* v;
+-	v = myClass.getVal();
+-	printf("this is a priv member value what is returned from public method : %s", v);
+-
+-	return 0;
+-}
+diff -Naur ./cppcheck-1.72/test/security/57.cpp ./cppcheck-1.72_org/test/security/57.cpp
+--- ./cppcheck-1.72/test/security/57.cpp	2016-03-10 15:37:05.615810171 +0900
++++ ./cppcheck-1.72_org/test/security/57.cpp	1970-01-01 09:00:00.000000000 +0900
+@@ -1,27 +0,0 @@
+-//
+-// get priv ptr using public method
+-#include <stdio.h>
+-
+-class epgData
+-{
+-public:
+-	char innerArray[64];
+-public:
+-	char* getVal()
+-	{
+-		// see if public method returns a private arrary
+-		return innerArray;
+-	}
+-};
+-
+-int main()
+-{
+-	epgData myClass;
+-
+-	char* v;
+-	v = myClass.getVal();
+-	printf("this is a priv member value what is returned from public method : %s", v);
+-
+-
+-	return 0;
+-}
+diff -Naur ./cppcheck-1.72/test/security/58.cpp ./cppcheck-1.72_org/test/security/58.cpp
+--- ./cppcheck-1.72/test/security/58.cpp	2016-03-10 15:37:14.007810167 +0900
++++ ./cppcheck-1.72_org/test/security/58.cpp	1970-01-01 09:00:00.000000000 +0900
+@@ -1,27 +0,0 @@
+-//[TCFILE:11]: (error) innerArray : (broken capsulation) you should not assign a ptr to a private member.\n
+-// set public ptr as a private member
+-#include <stdio.h>
+-
+-class epgData
+-{
+-private:
+-	char *innerArray;
+-public:
+-	void setVal(char* arg)
+-	{
+-		// see if public method set a arg to a private member variable
+-		innerArray = arg;
+-	}
+-};
+-
+-int main()
+-{
+-	epgData myClass;
+-
+-	char v[64];
+-	scanf("%63s", v);
+-	myClass.setVal(v);
+-
+-
+-	return 0;
+-}
+diff -Naur ./cppcheck-1.72/test/security/59.cpp ./cppcheck-1.72_org/test/security/59.cpp
+--- ./cppcheck-1.72/test/security/59.cpp	2016-03-10 15:37:22.959810162 +0900
++++ ./cppcheck-1.72_org/test/security/59.cpp	1970-01-01 09:00:00.000000000 +0900
+@@ -1,26 +0,0 @@
+-//
+-// set public ptr as a private member
+-#include <stdio.h>
+-
+-class epgData
+-{
+-public:
+-	char *innerArray;
+-public:
+-	void setVal(char* arg)
+-	{
+-		// see if public method set a arg to a private member variable
+-		innerArray = arg;
+-	}
+-};
+-
+-int main()
+-{
+-	epgData myClass;
+-
+-	char v[64];
+-	scanf("%63s", v);
+-	myClass.setVal(v);
+-
+-	return 0;
+-}
+diff -Naur ./cppcheck-1.72/test/security/5.c ./cppcheck-1.72_org/test/security/5.c
+--- ./cppcheck-1.72/test/security/5.c	2016-03-10 15:13:41.243810895 +0900
++++ ./cppcheck-1.72_org/test/security/5.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,16 +0,0 @@
+-//[TCFILE:11]: (error) Insecure input value injected from fgets[TCFILE:10] to inVal\n
+-// array fgets injection
+-// this TC is affected from cppcheck's _simplify from processfile
+-// simplify changes toks to fgets("/sh", stdin)
+-#include <stdio.h>
+-#include <unistd.h>
+-void f()
+-{
+-	char inVal[64] = "/sh";
+-	fgets(inVal, 64, stdin);
+-	execl(inVal, inVal, NULL);
+-}
+-void main()
+-{
+-	f();
+-}
+diff -Naur ./cppcheck-1.72/test/security/60.c ./cppcheck-1.72_org/test/security/60.c
+--- ./cppcheck-1.72/test/security/60.c	2016-03-10 14:05:37.719812999 +0900
++++ ./cppcheck-1.72_org/test/security/60.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,16 +0,0 @@
+-//[TCFILE:10]: (error) you should not use atoied value directly to ptr operation. you need to check it's range and validity\n
+-#include <stdio.h>
+-
+-void main()
+-{
+-	char array[64] = "my data";
+-	char inVal[64];
+-
+-	fgets(inVal, 64, stdin);
+-	int offset = atoi(inVal);
+-	array[offset] = "X";
+-
+-	printf("%2x", array[0]);
+-
+-	return;
+-}
+diff -Naur ./cppcheck-1.72/test/security/61.c ./cppcheck-1.72_org/test/security/61.c
+--- ./cppcheck-1.72/test/security/61.c	2016-03-10 14:06:19.003812977 +0900
++++ ./cppcheck-1.72_org/test/security/61.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,16 +0,0 @@
+-//[TCFILE:10]: (error) you should not use atoied value directly to ptr operation. you need to check it's range and validity\n
+-#include <stdio.h>
+-
+-void main()
+-{
+-	char array[64] = "my data";
+-	char inVal[64];
+-
+-	fgets(inVal, 64, stdin);
+-	int offset = atoi(inVal);
+-	*(array + offset) = "X";
+-
+-	printf("%2x", array[0]);
+-
+-	return;
+-}
+diff -Naur ./cppcheck-1.72/test/security/62.c ./cppcheck-1.72_org/test/security/62.c
+--- ./cppcheck-1.72/test/security/62.c	2016-03-10 14:06:23.535812975 +0900
++++ ./cppcheck-1.72_org/test/security/62.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,17 +0,0 @@
+-//
+-#include <stdio.h>
+-
+-void main()
+-{
+-	char array[64] = "my data";
+-	char inVal[64];
+-
+-	fgets(inVal, 64, stdin);
+-	int offset = atoi(inVal);
+-	int offset2 = 1;
+-	array[offset2] = "X";
+-
+-	printf("%2x, given offset = %d", array[0], offset);
+-
+-	return;
+-}
+diff -Naur ./cppcheck-1.72/test/security/63.c ./cppcheck-1.72_org/test/security/63.c
+--- ./cppcheck-1.72/test/security/63.c	2016-03-10 15:01:20.207811277 +0900
++++ ./cppcheck-1.72_org/test/security/63.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,10 +0,0 @@
+-//[TCFILE:8]: (error) sprintf : you should not call denied function\n
+-// use of denied function
+-#include <stdio.h>
+-#include <stdlib.h>
+-void main()
+-{
+-	char* ptr = malloc(16);
+-	sprintf(ptr, "%s", "to be copied");
+-	return;
+-}
+diff -Naur ./cppcheck-1.72/test/security/64.c ./cppcheck-1.72_org/test/security/64.c
+--- ./cppcheck-1.72/test/security/64.c	2016-03-10 15:01:18.139811278 +0900
++++ ./cppcheck-1.72_org/test/security/64.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,11 +0,0 @@
+-//[TCFILE:9]: (error) snprintf : buffer overflow detected\n
+-// use of unlimited specifier for string e.g. "%s" and
+-// did not check return value of snprintf
+-#include <stdio.h>
+-#include <stdlib.h>
+-void main()
+-{
+-	char* ptr = malloc(17);
+-	snprintf(ptr, 16, "aa  aa  %s", "to be copied oajefo jboij aw;j ;oj b;oawj ;boij ;oji ");
+-	return;
+-}
+diff -Naur ./cppcheck-1.72/test/security/65.c ./cppcheck-1.72_org/test/security/65.c
+--- ./cppcheck-1.72/test/security/65.c	2016-03-10 14:06:38.315812967 +0900
++++ ./cppcheck-1.72_org/test/security/65.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,13 +0,0 @@
+-//[TCFILE:8]: (error) snprintf : buffer overflow detected\n
+-// did not process snprintf's return
+-#include <stdio.h>
+-
+-void main()
+-{
+-	char ptr[16];
+-	if(snprintf(ptr, 16, "%15s", "to be copied aboiajwbowj bowjb ;o jab;oij woj") == -1)
+-	{
+-		printf("snprintf returns fail");
+-	}
+-	return;
+-}
+diff -Naur ./cppcheck-1.72/test/security/66.c ./cppcheck-1.72_org/test/security/66.c
+--- ./cppcheck-1.72/test/security/66.c	2016-03-10 14:06:43.627812965 +0900
++++ ./cppcheck-1.72_org/test/security/66.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,14 +0,0 @@
+-//[TCFILE:9]: (error) snprintf : you should use constant string for format specifier or not, it can be injected\n
+-// use of variable format string -> variable can be injected
+-#include <stdio.h>
+-
+-void main()
+-{
+-	char formatStr[256] = "%15s";
+-	char ptr[16];
+-	if(snprintf(ptr, 16, formatStr, "to be copied aboiajwbowj bowjb ;o jab;oij woj") == -1)
+-	{
+-		printf("snprintf returns fail");
+-	}
+-	return;
+-}
+diff -Naur ./cppcheck-1.72/test/security/67.c ./cppcheck-1.72_org/test/security/67.c
+--- ./cppcheck-1.72/test/security/67.c	2016-03-14 10:56:56.684178444 +0900
++++ ./cppcheck-1.72_org/test/security/67.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,11 +0,0 @@
+-//[TCFILE:10]: (error) strcpy : you should not call denied function\n
+-// strcpy normal
+-#include <stdio.h>
+-#include <string.h>
+-#include <stdlib.h>
+-void main()
+-{
+-	char arrInStack[8] = "1234567";
+-	char *pSrc = "12345";
+-	strcpy(arrInStack, pSrc);
+-}
+diff -Naur ./cppcheck-1.72/test/security/68.c ./cppcheck-1.72_org/test/security/68.c
+--- ./cppcheck-1.72/test/security/68.c	2016-03-14 10:56:55.664178426 +0900
++++ ./cppcheck-1.72_org/test/security/68.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,11 +0,0 @@
+-//[TCFILE:10]: (error) strcpy : you should not call denied function\n
+-// strcpy with BO
+-#include <stdio.h>
+-#include <string.h>
+-#include <stdlib.h>
+-void main()
+-{
+-	char arrInStack[8] = "1234567";
+-	char *pSrc = "1234567SHELLCODE";
+-	strcpy(arrInStack, pSrc);
+-}
+diff -Naur ./cppcheck-1.72/test/security/69.c ./cppcheck-1.72_org/test/security/69.c
+--- ./cppcheck-1.72/test/security/69.c	2016-03-11 17:54:31.699628637 +0900
++++ ./cppcheck-1.72_org/test/security/69.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,11 +0,0 @@
+-//
+-//strncpy normal
+-#include <stdio.h>
+-#include <string.h>
+-#include <stdlib.h>
+-void main()
+-{
+-	char arrDestInStack[8] = "1234567";
+-	char *pSrc = "1234567SHELLCODE";
+-	strncpy(arrDestInStack, pSrc, sizeof(arrDestInStack)-1);
+-}
+diff -Naur ./cppcheck-1.72/test/security/6.c ./cppcheck-1.72_org/test/security/6.c
+--- ./cppcheck-1.72/test/security/6.c	2016-03-10 15:13:00.007810916 +0900
++++ ./cppcheck-1.72_org/test/security/6.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,16 +0,0 @@
+-//[TCFILE:11]: (error) Insecure input value injected from scanf[TCFILE:10] to inVal\n
+-// arrary scanf injection
+-// this TC is affected from cppcheck's _simplify from processfile
+-// simplify changes toks to scanf("%s", "/sh")
+-#include <stdio.h>
+-#include <unistd.h>
+-void f()
+-{
+-	char inVal[64] = "/sh";
+-	scanf("%s", inVal);
+-	execl(inVal, inVal, NULL);
+-}
+-void main()
+-{
+-	f();
+-}
+diff -Naur ./cppcheck-1.72/test/security/70.c ./cppcheck-1.72_org/test/security/70.c
+--- ./cppcheck-1.72/test/security/70.c	2016-03-14 16:18:21.596514280 +0900
++++ ./cppcheck-1.72_org/test/security/70.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,12 +0,0 @@
+-//[TCFILE:11]: (error) strncpy : buffer overflow detected\n
+-// strncpy with BO
+-// sizeof(src) error
+-#include <stdio.h>
+-#include <string.h>
+-#include <stdlib.h>
+-void main()
+-{
+-	char arrDestInStack[8] = "1234567";
+-	char arrSrc[32] = "1234567SHELLCODE";
+-	strncpy(arrDestInStack, arrSrc, sizeof(arrSrc)-1);
+-}
+diff -Naur ./cppcheck-1.72/test/security/71.c ./cppcheck-1.72_org/test/security/71.c
+--- ./cppcheck-1.72/test/security/71.c	2016-03-14 16:29:12.524525616 +0900
++++ ./cppcheck-1.72_org/test/security/71.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,11 +0,0 @@
+-//[TCFILE:10]: (error) strncpy : buffer overflow detected\n[TCFILE:10]: (error) strncpy : strlen("str") is Not OK. strncpy(dest, "string", sizeof(dest)-1) is OK\n
+-// strncpy with BO
+-// strlen of src error
+-#include <stdio.h>
+-#include <string.h>
+-#include <stdlib.h>
+-void main()
+-{
+-	char arrDestInStack[8] = "1234567";
+-	strncpy(arrDestInStack, "1234567SHELLCODE", strlen("1234567SHELLCODE"));
+-}
+diff -Naur ./cppcheck-1.72/test/security/72.c ./cppcheck-1.72_org/test/security/72.c
+--- ./cppcheck-1.72/test/security/72.c	2016-03-14 16:17:42.964513607 +0900
++++ ./cppcheck-1.72_org/test/security/72.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,11 +0,0 @@
+-//[TCFILE:10]: (error) strncpy : buffer overflow detected\n
+-// strncpy with BO
+-// sizeof src error
+-#include <stdio.h>
+-#include <string.h>
+-#include <stdlib.h>
+-void main()
+-{
+-	char arrInStack[8] = "1234567";
+-	strncpy(arrInStack, "1234567SHELLCODE", sizeof("1234567SHELLCODE"));
+-}
+diff -Naur ./cppcheck-1.72/test/security/73.c ./cppcheck-1.72_org/test/security/73.c
+--- ./cppcheck-1.72/test/security/73.c	2016-03-14 16:17:46.544513670 +0900
++++ ./cppcheck-1.72_org/test/security/73.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,11 +0,0 @@
+-//[TCFILE:10]: (error) strncpy : buffer overflow detected\n
+-// strncpy with BO
+-// larger than dest buff size err
+-#include <stdio.h>
+-#include <string.h>
+-#include <stdlib.h>
+-void main()
+-{
+-	char arrInStack[8] = "1234567";
+-	strncpy(arrInStack, "1234567SHELLCODE", 9);
+-}
+diff -Naur ./cppcheck-1.72/test/security/74.c ./cppcheck-1.72_org/test/security/74.c
+--- ./cppcheck-1.72/test/security/74.c	2016-03-14 10:57:30.996179041 +0900
++++ ./cppcheck-1.72_org/test/security/74.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,10 +0,0 @@
+-//[TCFILE:9]: (error) strcat : you should not call denied function\n
+-// strcat normal
+-#include <stdio.h>
+-#include <string.h>
+-#include <stdlib.h>
+-void main()
+-{
+-	char arrInStack[24] = "1234567";
+-	strcat(arrInStack, "1234567SHELLCODE");
+-}
+diff -Naur ./cppcheck-1.72/test/security/75.c ./cppcheck-1.72_org/test/security/75.c
+--- ./cppcheck-1.72/test/security/75.c	2016-03-14 16:31:04.516527566 +0900
++++ ./cppcheck-1.72_org/test/security/75.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,10 +0,0 @@
+-//[TCFILE:9]: (error) strncat : cannot find sizeof and strlen in 3rd parameter. best practice is strncat (dest, src, sizeof(dest) - 1 - strlen(dest))\n
+-// strncat normal but the style is matter.
+-#include <stdio.h>
+-#include <string.h>
+-#include <stdlib.h>
+-void main()
+-{
+-	char arrInStack[24] = "1234567";
+-	strncat(arrInStack, "1234567SHELLCODE", strlen("1234567SHELLCODE"));
+-}
+diff -Naur ./cppcheck-1.72/test/security/76.c ./cppcheck-1.72_org/test/security/76.c
+--- ./cppcheck-1.72/test/security/76.c	2016-03-14 16:31:03.404527546 +0900
++++ ./cppcheck-1.72_org/test/security/76.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,10 +0,0 @@
+-//[TCFILE:9]: (error) strncat : cannot find sizeof and strlen in 3rd parameter. best practice is strncat (dest, src, sizeof(dest) - 1 - strlen(dest))\n
+-// strncat BO
+-#include <stdio.h>
+-#include <string.h>
+-#include <stdlib.h>
+-void main()
+-{
+-	char arrInStack[8] = "1234567";
+-	strncat(arrInStack, "1234567SHELLCODE", strlen("1234567SHELLCODE"));
+-}
+diff -Naur ./cppcheck-1.72/test/security/77.c ./cppcheck-1.72_org/test/security/77.c
+--- ./cppcheck-1.72/test/security/77.c	2016-03-11 18:08:18.587643037 +0900
++++ ./cppcheck-1.72_org/test/security/77.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,10 +0,0 @@
+-//
+-// strncat normal
+-#include <stdio.h>
+-#include <string.h>
+-#include <stdlib.h>
+-void main()
+-{
+-	char arrDestInStack[8] = "1234567";
+-	strncat(arrDestInStack, "1234567SHELLCODE", sizeof(arrDestInStack) -1 - strlen(arrDestInStack));
+-}
+diff -Naur ./cppcheck-1.72/test/security/78.c ./cppcheck-1.72_org/test/security/78.c
+--- ./cppcheck-1.72/test/security/78.c	2016-03-14 16:48:29.600545765 +0900
++++ ./cppcheck-1.72_org/test/security/78.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,14 +0,0 @@
+-//
+-// normal
+-#include <stdio.h>
+-#include <string.h>
+-
+-int main (int argc, char *argv[])
+-{
+-    char buffer[10];
+-    printf("Enter a message: \n");
+-    fgets(buffer, 10 , stdin);
+-    printf("%s\n", buffer);
+-
+-    return 0;
+-}
+diff -Naur ./cppcheck-1.72/test/security/79.c ./cppcheck-1.72_org/test/security/79.c
+--- ./cppcheck-1.72/test/security/79.c	2016-03-14 16:55:02.596552609 +0900
++++ ./cppcheck-1.72_org/test/security/79.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,14 +0,0 @@
+-//[TCFILE:10]: (error) fgets : buffer overflow detected\n
+-// buffer overflow
+-#include <stdio.h>
+-#include <string.h>
+-
+-int main (int argc, char *argv[])
+-{
+-    char buffer[10];
+-    printf("Enter a message: \n");
+-    fgets(buffer, 11 , stdin);
+-    printf("%s\n", buffer);
+-
+-    return 0;
+-}
+diff -Naur ./cppcheck-1.72/test/security/7.c ./cppcheck-1.72_org/test/security/7.c
+--- ./cppcheck-1.72/test/security/7.c	2016-03-10 15:13:02.587810915 +0900
++++ ./cppcheck-1.72_org/test/security/7.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,15 +0,0 @@
+-//[TCFILE:10]: (error) Insecure input value injected from scanf[TCFILE:9] to inVal\n
+-// ptr scanf injection
+-#include <stdio.h>
+-#include <unistd.h>
+-#include <stdlib.h>
+-void f()
+-{
+-	char *inVal = malloc(64);
+-	scanf("%s", inVal);
+-	execl(inVal, inVal, NULL);
+-}
+-void main()
+-{
+-	f();
+-}
+diff -Naur ./cppcheck-1.72/test/security/80.c ./cppcheck-1.72_org/test/security/80.c
+--- ./cppcheck-1.72/test/security/80.c	2016-03-14 16:49:00.176546298 +0900
++++ ./cppcheck-1.72_org/test/security/80.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,14 +0,0 @@
+-//
+-// normal
+-#include <stdio.h>
+-#include <string.h>
+-
+-int main (int argc, char *argv[])
+-{
+-    char buffer[10];
+-    printf("Enter a message: \n");
+-    fgets(buffer, sizeof(buffer) , stdin);
+-    printf("%s\n", buffer);
+-
+-    return 0;
+-}
+diff -Naur ./cppcheck-1.72/test/security/81.cpp ./cppcheck-1.72_org/test/security/81.cpp
+--- ./cppcheck-1.72/test/security/81.cpp	2016-03-15 10:22:09.782446053 +0900
++++ ./cppcheck-1.72_org/test/security/81.cpp	1970-01-01 09:00:00.000000000 +0900
+@@ -1,18 +0,0 @@
+-//
+-// normal
+-#define NULL 0
+-#include "PCString.h"
+-#include <stdio.h>
+-
+-int main()
+-{
+-	const char *pSrc = "hello world";
+-	char aDest[32] = "";
+-
+-	// static void PCString::Copy(char* dest, const char* source, unsigned long size)
+-	PCString::Copy(aDest, pSrc, sizeof(aDest) -1 );
+-
+-	printf("result = %s \n", aDest);
+-
+-	return 0;
+-}
+diff -Naur ./cppcheck-1.72/test/security/82.cpp ./cppcheck-1.72_org/test/security/82.cpp
+--- ./cppcheck-1.72/test/security/82.cpp	2016-03-15 10:58:05.890483601 +0900
++++ ./cppcheck-1.72_org/test/security/82.cpp	1970-01-01 09:00:00.000000000 +0900
+@@ -1,19 +0,0 @@
+-//[TCFILE:14]: (error) PCString : buffer overflow detected\n[TCFILE:14]: (error) PCString : strlen("str") is Not OK. strncpy(dest, "string", sizeof(dest)-1) is OK\n
+-// BO
+-#define NULL 0
+-#include "PCString.h"
+-#include <stdio.h>
+-#include <string.h>
+-
+-int main()
+-{
+-	//const char *pSrc = "hello world";
+-	char aDest[8] = "";
+-
+-	// static void PCString::Copy(char* dest, const char* source, unsigned long size)
+-	PCString::Copy(aDest, "hello world", strlen("hello world") );
+-
+-	printf("result = %s \n", aDest);
+-
+-	return 0;
+-}
+diff -Naur ./cppcheck-1.72/test/security/83.cpp ./cppcheck-1.72_org/test/security/83.cpp
+--- ./cppcheck-1.72/test/security/83.cpp	2016-03-15 11:18:45.210505183 +0900
++++ ./cppcheck-1.72_org/test/security/83.cpp	1970-01-01 09:00:00.000000000 +0900
+@@ -1,16 +0,0 @@
+-//
+-// normal
+-#define NULL 0
+-#include "PCString.h"
+-#include <stdio.h>
+-
+-int main()
+-{
+-	const char *pSrc = "hello world";
+-	char aDest[32] = "";
+-
+-	PCString::Print(aDest, sizeof(aDest),  "written by PCString::Print = %s \n", pSrc);
+-	printf("result = %s \n", aDest);
+-
+-	return 0;
+-}
+diff -Naur ./cppcheck-1.72/test/security/84.cpp ./cppcheck-1.72_org/test/security/84.cpp
+--- ./cppcheck-1.72/test/security/84.cpp	2016-03-15 13:40:37.786653425 +0900
++++ ./cppcheck-1.72_org/test/security/84.cpp	1970-01-01 09:00:00.000000000 +0900
+@@ -1,16 +0,0 @@
+-//[TCFILE:12]: (error) PCString : buffer overflow detected\n[TCFILE:12]: (error) PCString : size_t is larger than dest_buff size\n
+-// BO
+-#define NULL 0
+-#include "PCString.h"
+-#include <stdio.h>
+-
+-int main()
+-{
+-	const char *pSrc = "hello world";
+-	char aDest[8] = "";
+-
+-	PCString::Print(aDest, 32,  "written by PCString::Print = %s \n", pSrc);
+-	printf("result = %s \n", aDest);
+-
+-	return 0;
+-}
+diff -Naur ./cppcheck-1.72/test/security/85.c ./cppcheck-1.72_org/test/security/85.c
+--- ./cppcheck-1.72/test/security/85.c	2016-03-15 13:50:03.718663280 +0900
++++ ./cppcheck-1.72_org/test/security/85.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,17 +0,0 @@
+-//
+-//
+-#include <unistd.h>
+-#include <limits.h>
+-#include <stdio.h>
+-#include <stdlib.h>
+-
+-int main(int argc, char *argv[]) {
+-    char *symlinkpath = argv[1];
+-    char resolvedPath [PATH_MAX];
+-    char *ptr;
+-    ptr = realpath(symlinkpath, resolvedPath);
+-
+-    printf("resolved path = %s\n", resolvedPath);
+-
+-    return 0;
+-}
+diff -Naur ./cppcheck-1.72/test/security/86.c ./cppcheck-1.72_org/test/security/86.c
+--- ./cppcheck-1.72/test/security/86.c	2016-03-15 14:22:43.634697411 +0900
++++ ./cppcheck-1.72_org/test/security/86.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,17 +0,0 @@
+-//[TCFILE:12]: (error) realpath : you need to set buffer size as PATH_MAX\n
+-// overflow on realpath resolved path
+-#include <unistd.h>
+-#include <limits.h>
+-#include <stdio.h>
+-#include <stdlib.h>
+-
+-int main(int argc, char *argv[]) {
+-    char *symlinkpath = argv[1];
+-    char resolvedPath [256];
+-    char *ptr;
+-    ptr = realpath(symlinkpath, resolvedPath);
+-
+-    printf("resolved path = %s\n", resolvedPath);
+-
+-    return 0;
+-}
+diff -Naur ./cppcheck-1.72/test/security/87.c ./cppcheck-1.72_org/test/security/87.c
+--- ./cppcheck-1.72/test/security/87.c	2016-03-15 14:33:07.290708271 +0900
++++ ./cppcheck-1.72_org/test/security/87.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,17 +0,0 @@
+-//[TCFILE:12]: (error) realpath : you need to set buffer size as PATH_MAX\n
+-// overflow on realpath resolved path
+-#include <unistd.h>
+-#include <limits.h>
+-#include <stdio.h>
+-#include <stdlib.h>
+-
+-int main(int argc, char *argv[]) {
+-    char *symlinkpath = argv[1];
+-    char *resolvedPath = malloc(256);
+-    char *ptr;
+-    ptr = realpath(symlinkpath, resolvedPath);
+-
+-    printf("resolved path = %s\n", resolvedPath);
+-
+-    return 0;
+-}
+diff -Naur ./cppcheck-1.72/test/security/88.c ./cppcheck-1.72_org/test/security/88.c
+--- ./cppcheck-1.72/test/security/88.c	2016-03-15 16:28:38.914828982 +0900
++++ ./cppcheck-1.72_org/test/security/88.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,11 +0,0 @@
+-//
+-//memcpy normal
+-#include <stdio.h>
+-#include <string.h>
+-#include <stdlib.h>
+-void main()
+-{
+-	char arrDestInStack[8] = "1234567";
+-	char *pSrc = "1234567SHELLCODE";
+-	memcpy(arrDestInStack, pSrc, strlen(pSrc)+1);
+-}
+diff -Naur ./cppcheck-1.72/test/security/89.c ./cppcheck-1.72_org/test/security/89.c
+--- ./cppcheck-1.72/test/security/89.c	2016-03-15 16:34:50.202835448 +0900
++++ ./cppcheck-1.72_org/test/security/89.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,11 +0,0 @@
+-//[TCFILE:10]: (error) memcpy : plz check if you copy the null byte. example strlen(x) + 1.\n
+-//memcpy style err
+-#include <stdio.h>
+-#include <string.h>
+-#include <stdlib.h>
+-void main()
+-{
+-	char arrDestInStack[8] = "1234567";
+-	const char *pSrc = "1234567SHELLCODE";
+-	memcpy(arrDestInStack, pSrc, strlen(pSrc));
+-}
+diff -Naur ./cppcheck-1.72/test/security/8.c ./cppcheck-1.72_org/test/security/8.c
+--- ./cppcheck-1.72/test/security/8.c	2016-03-14 16:28:25.984524805 +0900
++++ ./cppcheck-1.72_org/test/security/8.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,18 +0,0 @@
+-//[TCFILE:12]: (error) strcpy : you should not call denied function\n[TCFILE:13]: (error) Insecure input value injected from strcpy[TCFILE:12] to inVal2\n
+-// ptr scanf strcpy injection
+-#include <stdio.h>
+-#include <unistd.h>
+-#include <stdlib.h>
+-#include <string.h>
+-void f()
+-{
+-    char *inVal1 = malloc(64);
+-    char *inVal2 = malloc(64);
+-    scanf("%s", inVal1);
+-    strcpy(inVal2, inVal1);
+-    execl(inVal2, inVal2, NULL);
+-}
+-void main()
+-{
+-	f();
+-}
+diff -Naur ./cppcheck-1.72/test/security/90.cpp ./cppcheck-1.72_org/test/security/90.cpp
+--- ./cppcheck-1.72/test/security/90.cpp	2016-03-15 16:40:48.594841689 +0900
++++ ./cppcheck-1.72_org/test/security/90.cpp	1970-01-01 09:00:00.000000000 +0900
+@@ -1,14 +0,0 @@
+-//[TCFILE:11]: (error) PCMem : plz check if you copy the null byte. example strlen(x) + 1.\n
+-//memcpy style err
+-#include <stdio.h>
+-#include <string.h>
+-#include <stdlib.h>
+-#include "PCString.h"
+-int main()
+-{
+-	char arrDestInStack[8] = "1234567";
+-	const char *pSrc = "1234567SHELLCODE";
+-	PCMem::Copy(arrDestInStack, pSrc, strlen(pSrc));
+-
+-	return 0;
+-}
+diff -Naur ./cppcheck-1.72/test/security/91.c ./cppcheck-1.72_org/test/security/91.c
+--- ./cppcheck-1.72/test/security/91.c	2016-03-15 17:17:50.830880388 +0900
++++ ./cppcheck-1.72_org/test/security/91.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,23 +0,0 @@
+-//
+-//TEST WITH TestIO TESTER
+-//[TCFILE:9]: (warning) scanf without field width limits can crash with huge input data.
+-//[TCFILE:10]: (warning) scanf without field width limits can crash with huge input data.
+-//[TCFILE:11]: (warning) scanf without field width limits can crash with huge input data.
+-//[TCFILE:12]: (warning) scanf without field width limits can crash with huge input data.
+-//[TCFILE:13]: (warning) scanf without field width limits can crash with huge input data.
+-
+-#include <stdio.h>
+-#include <stdlib.h>
+-int main() {
+-	int a, b;
+-	char bar[256];
+-	char foo[256] = "abcde hello";
+-	FILE *file = fopen("test", "r");
+-	a = fscanf(file, "aa %s", bar);
+-	b = scanf("aa %S", bar);
+-	b = scanf("aa %ls", bar);
+-	sscanf(foo, "%[^~]", bar);
+-	scanf("%dx%s", &b, bar);
+-	fclose(file);
+-}
+-
+diff -Naur ./cppcheck-1.72/test/security/92.c ./cppcheck-1.72_org/test/security/92.c
+--- ./cppcheck-1.72/test/security/92.c	2016-03-15 17:17:46.362880310 +0900
++++ ./cppcheck-1.72_org/test/security/92.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,17 +0,0 @@
+-//
+-// normal
+-#include <stdio.h>
+-#include <stdlib.h>
+-int main() {
+-	int a, b;
+-	char bar[256];
+-	char foo[256] = "abcde hello";
+-	FILE *file = fopen("test", "r");
+-	a = fscanf(file, "aa %255s", bar);
+-	b = scanf("aa %255S", bar);
+-	b = scanf("aa %255ls", bar);
+-	sscanf(foo, "%255[^~]", bar);
+-	scanf("%dx%255s", &b, bar);
+-	fclose(file);
+-}
+-
+diff -Naur ./cppcheck-1.72/test/security/93.c ./cppcheck-1.72_org/test/security/93.c
+--- ./cppcheck-1.72/test/security/93.c	2016-03-16 09:35:28.682921485 +0900
++++ ./cppcheck-1.72_org/test/security/93.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,13 +0,0 @@
+-//
+-// normal CURLOPT_POST
+-#include <curl/curl.h>
+-void f()
+-{
+-	curl_global_init( CURL_GLOBAL_ALL ) ;
+-	CURL* easy_handle = curl_easy_init() ;
+-	curl_easy_setopt ( easy_handle ,CURLOPT_POST, 1L);
+-}
+-void main()
+-{
+-	f();
+-}
+diff -Naur ./cppcheck-1.72/test/security/94.c ./cppcheck-1.72_org/test/security/94.c
+--- ./cppcheck-1.72/test/security/94.c	2016-03-16 09:36:55.950923005 +0900
++++ ./cppcheck-1.72_org/test/security/94.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,13 +0,0 @@
+-//[TCFILE:8]: (error) CURLOPT_POST is disabled.\n
+-// SSL CURLOPT_POST error
+-#include <curl/curl.h>
+-void f()
+-{
+-	curl_global_init( CURL_GLOBAL_ALL ) ;
+-	CURL* easy_handle = curl_easy_init() ;
+-	curl_easy_setopt ( easy_handle ,CURLOPT_POST, 0L);
+-}
+-void main()
+-{
+-	f();
+-}
+diff -Naur ./cppcheck-1.72/test/security/9.c ./cppcheck-1.72_org/test/security/9.c
+--- ./cppcheck-1.72/test/security/9.c	2016-03-10 15:13:11.387810910 +0900
++++ ./cppcheck-1.72_org/test/security/9.c	1970-01-01 09:00:00.000000000 +0900
+@@ -1,15 +0,0 @@
+-//[TCFILE:10]: (error) non abs command injection"rm -rf"\n
+-// ptr value flow
+-#include <stdio.h>
+-#include <unistd.h>
+-#include <stdlib.h>
+-void f()
+-{
+-    char *inVal = "/sh -alh";
+-    inVal = "rm -rf";
+-    execl(inVal, inVal, NULL);
+-}
+-void main()
+-{
+-	f();
+-}
+diff -Naur ./cppcheck-1.72/test/testbufferoverrun.cpp ./cppcheck-1.72_org/test/testbufferoverrun.cpp
+--- ./cppcheck-1.72/test/testbufferoverrun.cpp	2016-03-16 09:36:31.266922575 +0900
++++ ./cppcheck-1.72_org/test/testbufferoverrun.cpp	2016-01-09 22:50:01.000000000 +0900
+@@ -23,28 +23,6 @@
+ #include <tinyxml2.h>
+ #include <climits>
+ 
+-#include <iostream>     // std::cout
+-#include <fstream>      // std::ifstream
+-#include "preprocessor.h"
+-#include "cppcheck.h"
+-
+-
+-#include <sys/types.h>
+-#include <sys/stat.h>
+-//#include <unistd.h>
+-bool exists_test3 (const std::string& name) {
+-  struct stat buffer;
+-  return (stat (name.c_str(), &buffer) == 0);
+-}
+-
+-void ReplaceStringInPlace(std::string& subject, const std::string& search,
+-                          const std::string& replace) {
+-    size_t pos = 0;
+-    while ((pos = subject.find(search, pos)) != std::string::npos) {
+-         subject.replace(pos, search.length(), replace);
+-         pos += replace.length();
+-    }
+-}
+ 
+ class TestBufferOverrun : public TestFixture {
+ public:
+@@ -88,50 +66,6 @@
+         checkBufferOverrun.arrayIndexThenCheck();
+     }
+ 
+-    void checkWithExtFile(const std::string &path)
+-    {
+-    	errout.str("");
+-
+-    	std::string realpath;
+-
+-    	if(exists_test3(path + ".c"))
+-    		realpath = path +".c";
+-    	else
+-    		realpath = path +".cpp";
+-
+-    	std::ifstream file(realpath);
+-    	if ( file.is_open() )
+-    	{
+-    		// extract 1st line
+-    		std::string line;
+-    		std::getline(file, line);
+-    		std::string ans = line.substr(2);
+-
+-    		ReplaceStringInPlace(ans, "TCFILE", realpath);
+-
+-    		file.close();
+-
+-    		CppCheck cppcheck(*this, false);
+-    		cppcheck.settings().experimental = true;
+-    		cppcheck.settings().inconclusive = true;
+-    		cppcheck.check(realpath);
+-
+-    		std::string expectedAns = errout.str();
+-
+-    		ReplaceStringInPlace(expectedAns, "\n", "\\n");
+-
+-    		//std::cout << "ANS #" + ans + "#\n";
+-    		//std::cout << "OUT #" + expectedAns + "#\n";
+-
+-    		ASSERT_EQUALS(ans, expectedAns);
+-    	}
+-    	else
+-    	{
+-    		std::cout << "checkWithExtFile can not open test file = " + path + ".c or .cpp \n";
+-    	}
+-
+-    }
+-
+     void run() {
+         settings0.addEnabled("warning");
+         settings0.addEnabled("style");
+@@ -302,21 +236,10 @@
+ 
+         TEST_CASE(negativeMemoryAllocationSizeError) // #389
+         TEST_CASE(negativeArraySize);
+-
+-        // SECURITY TC
+-        {
+-        	for(int i = 1; i <= 94 ; i++)
+-        	{
+-        		std::stringstream sstm;
+-        		sstm << "test/security/" << i;
+-
+-        		prepareTest(sstm.str().c_str());
+-
+-        		checkWithExtFile(sstm.str());
+-        	}
+-        }
+     }
+ 
++
++
+     void noerr1() {
+         check("extern int ab;\n"
+               "void f()\n"
+diff -Naur ./cppcheck-1.72/test/testrunner.vcxproj ./cppcheck-1.72_org/test/testrunner.vcxproj
+--- ./cppcheck-1.72/test/testrunner.vcxproj	2016-03-10 07:28:33.196731500 +0900
++++ ./cppcheck-1.72_org/test/testrunner.vcxproj	2016-01-09 22:50:01.000000000 +0900
+@@ -183,8 +183,8 @@
+       <ForcedIncludeFiles>testsuite.h</ForcedIncludeFiles>
+     </ClCompile>
+     <Link>
+-      <AdditionalDependencies>cppcheck.lib;shlwapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+-      <AdditionalLibraryDirectories>../bin;../externals;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
++      <AdditionalDependencies>shlwapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
++      <AdditionalLibraryDirectories>../externals;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+       <GenerateDebugInformation>true</GenerateDebugInformation>
+       <SubSystem>Console</SubSystem>
+       <SuppressStartupBanner>true</SuppressStartupBanner>
+@@ -240,8 +240,8 @@
+       <AdditionalOptions>/Zc:inline /Zc:throwingNew %(AdditionalOptions)</AdditionalOptions>
+     </ClCompile>
+     <Link>
+-      <AdditionalDependencies>cppcheck.lib;shlwapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+-      <AdditionalLibraryDirectories>../bin;../externals;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
++      <AdditionalDependencies>shlwapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
++      <AdditionalLibraryDirectories>../externals;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+       <GenerateDebugInformation>false</GenerateDebugInformation>
+       <SubSystem>Console</SubSystem>
+       <SuppressStartupBanner>true</SuppressStartupBanner>
